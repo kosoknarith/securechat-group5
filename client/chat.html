@@ -1,0 +1,100 @@
+<!doctype html>
+<html>
+  <body>
+    <h3>SecureChat - Chat</h3>
+    <button onclick="logout()">Logout</button>
+
+    <br /><br />
+
+    <input id="msg" placeholder="Type message..." />
+    <button onclick="sendMsg()">Send</button>
+
+    <pre id="log"></pre>
+
+    <script>
+      const log = (t) => (document.getElementById("log").textContent += t + "\n");
+
+      const username = sessionStorage.getItem("username");
+      const password = sessionStorage.getItem("password");
+      window.addEventListener("beforeunload", () => {
+      sessionStorage.removeItem("username");
+      sessionStorage.removeItem("password");
+    });
+
+      // If user didn't log in, kick them back to login page
+      if (!username || !password) {
+        window.location.href = "login.html";
+      }
+
+      let authed = false;
+      const ws = new WebSocket("ws://localhost:8080");
+
+      ws.onopen = () => {
+        log("Connected");
+        // auto-auth when chat page opens
+        ws.send(JSON.stringify({ type: "auth", username, password }));
+      };
+
+      ws.onmessage = (e) => {
+        let msg;
+        try { msg = JSON.parse(e.data); } catch { return log("MSG: " + e.data); }
+
+        if (msg.type === "auth_ok") {
+          authed = true;
+          log("Logged in as " + username);
+          return;
+        }
+
+        if (msg.type === "auth_fail") {
+          log("Login failed. Please login again.");
+          sessionStorage.removeItem("username");
+          sessionStorage.removeItem("password");
+          try { ws.close(); } catch {}
+          window.location.href = "login.html";
+          return;
+        }
+
+        if (msg.type === "chat") {
+          log(`CHAT ${msg.from}: ${msg.message}`);
+          return;
+        }
+
+        log(`${msg.type}: ${msg.message ?? ""}`);
+      };
+
+      ws.onclose = () => {
+        log("Disconnected - logging out for security.");
+        sessionStorage.removeItem("username");
+        sessionStorage.removeItem("password");
+        window.location.href = "login.html";
+      };
+      
+      ws.onerror = () => {
+        log("Connection error - logging out for security.");
+        sessionStorage.removeItem("username");
+        sessionStorage.removeItem("password");
+        window.location.href = "login.html";
+      };
+
+      function sendMsg() {
+        if (!authed) {
+          log("Not authenticated yet.");
+          return;
+        }
+
+        const text = document.getElementById("msg").value.trim();
+        if (!text) return;
+
+        ws.send(JSON.stringify({ type: "chat", message: text }));
+        document.getElementById("msg").value = "";
+      }
+
+      function logout() {
+        sessionStorage.removeItem("username");
+        sessionStorage.removeItem("password");
+        try { ws.close(); } catch {}
+        window.location.href = "login.html";
+      }
+    </script>
+  </body>
+</html>
