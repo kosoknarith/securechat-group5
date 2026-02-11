@@ -1,0 +1,67 @@
+/* Welcome to our chat sever */
+h1{
+        background-color: #020203;
+    text-align: center;
+    color: rgb(255, 255, 255);
+    font-size: 30px;
+    padding: 10px;  
+}
+
+/*entire interface */
+*{
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+/* Chat container  */
+html, body {
+    height: 100%;
+    font-family: Arial, sans-serif;
+}
+
+/* Top section */
+.chat-container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+}
+
+/* Middle section */
+.chat-messages {
+    flex: 1; /* THIS makes it take all remaining space */
+    padding: 15px;
+    overflow-y: auto;
+    background-color: #a39c9c;
+}
+
+/* Bottom section  */
+.chat-input {
+    display: flex;
+    padding: 10px;
+    background-color: #bdc3c7;
+}
+
+/* Input field and send button */
+.chat-input input {
+    flex: 1;
+    padding: 10px;
+    font-size: 16px;
+    font-weight: 100;
+    border: none;
+    outline: none;
+}
+
+/* Send button */
+.chat-input button {
+    padding: 10px 20px;
+    font-size: 16px;
+    border: none;
+    cursor: pointer;
+}
+
+/* Send button hover effect */
+.chat-input button:hover {
+    background-color: #273cf5;
+    color: white;
+}

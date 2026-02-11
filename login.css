@@ -1,0 +1,91 @@
+/* most of the layouts patterns are from the Chat_Interface.css  */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  height: 100%;
+  font-family: Arial, sans-serif;
+}
+
+.login-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.login-header {
+  background-color: #020203;
+  text-align: center;
+  color: white;
+  font-size: 30px;
+  padding: 10px;
+}
+
+/* Middle area fills space */
+.login-main {
+  flex: 1;
+  background-color: #a39c9c; /* matches chat-messages background */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 15px;
+}
+
+/* Simple centered card */
+.login-card {
+  background: white;
+  width: 100%;
+  max-width: 420px;
+  padding: 25px;
+  border-radius: 6px;
+}
+
+/* Title */
+.login-card h2 {
+  margin-bottom: 15px;
+  font-size: 22px;
+}
+
+/* Form layout */
+.login-card form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.login-card label {
+  font-size: 14px;
+}
+
+/* Login input fields */
+.login-card input {
+  padding: 10px;
+  font-size: 16px;
+  border: none;
+  outline: none;
+  background-color: #bdc3c7; 
+}
+
+/*login input button */
+.login-card button {
+  margin-top: 8px;
+  padding: 10px;
+  font-size: 16px;
+  border: none;
+  cursor: pointer;
+}
+
+/* Login input hover effect */
+.login-card button:hover {
+  background-color: #273cf5;
+  color: white;
+}
+/*
+.login-note {
+  margin-top: 12px;
+  font-size: 13px;
+  color: #333;
+} */
