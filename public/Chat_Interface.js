@@ -17,6 +17,7 @@ const inputEl = document.getElementById("messageInput");
 const sendBtn = document.getElementById("sendBtn");
 
 let authed = false;
+let didAuth = false;
 
 function addLine(text) {
   const div = document.createElement("div");
@@ -49,6 +50,7 @@ ws.onmessage = (e) => {
 
   if (msg.type === "auth_ok") {
     authed = true;
+    didAuth = true;
     addLine("Logged in as " + username);
     return;
   }
@@ -73,16 +75,20 @@ ws.onmessage = (e) => {
 
 ws.onclose = () => {
   addLine("Disconnected - logging out.");
-  sessionStorage.removeItem("username");
-  sessionStorage.removeItem("password");
-  window.location.href = "login.html";
+  if (didAuth){
+    sessionStorage.removeItem("username");
+    sessionStorage.removeItem("password");
+    window.location.href = "login.html";
+  }
 };
 
 ws.onerror = () => {
   addLine("Connection error - logging out.");
-  sessionStorage.removeItem("username");
-  sessionStorage.removeItem("password");
-  window.location.href = "login.html";
+  if (didAuth) {
+    sessionStorage.removeItem("username");
+    sessionStorage.removeItem("password");
+    window.location.href = "login.html";
+  } 
 };
 
 function sendChat() {
