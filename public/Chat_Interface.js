@@ -25,7 +25,8 @@ function addLine(text) {
   messagesEl.scrollTop = messagesEl.scrollHeight;
 }
 
-const ws = new WebSocket(`ws://${window.location.hostname}:8080`);
+const ws = new WebSocket("wss://localhost:8080");
+
 
 const logoutBtn = document.getElementById("logoutBtn");
 if (logoutBtn) {

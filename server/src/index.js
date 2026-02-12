@@ -1,5 +1,9 @@
 const WebSocket = require("ws");
+const https = require("https");
+const fs = require("fs");
+const path = require("path"); 
 const { validateCredentials } = require("./auth/authService");
+const publicDir = path.join(__dirname, "../../public");
 
 const sessions = new Map(); // ws key, value has username
 const PORT = 8080;
@@ -18,12 +22,53 @@ const AUTH_MAX_TRIES = 5; // Auth max attempts per window
 const chatRate = new Map();
 const authRate = new Map();
 
+/* Create HTTPS server */
+const httpsServer = https.createServer(
+  {
+    // loads self-signed cert and key from file
+    cert: fs.readFileSync(path.join(__dirname, "/server.cert")),
+    key: fs.readFileSync(path.join(__dirname, "/server.key")),
+  },
+  (request, response) => {
+
+    let filePath = path.join(publicDir, request.url);
+  
+
+  // if connecting to http://localhost:8080/ will land on login page
+  if (request.url === "/") {
+  filePath = path.join(publicDir, "login.html");
+  }
+
+    // reads requested file
+    fs.readFile(filePath, (err, data) => {
+      // error if file not found
+      if (err) {
+        response.statusCode = 404;
+        return response.end("Not Found");
+      }
+
+      // Sets content type
+      const ext = path.extname(filePath);
+      
+      // only handles html, css, js
+      if (ext === ".html") response.setHeader("Content-Type", "text/html");
+      if (ext === ".css") response.setHeader("Content-Type", "text/css");
+      if (ext === ".js") response.setHeader("Content-Type", "application/javascript");
+
+      response.end(data);
+    });
+  }
+);
+
+
 const wss = new WebSocket.Server({
-  port: PORT,
+  server: httpsServer,
   maxPayload: MAX_FRAME_BYTES,
 });
 
-console.log(`WebSocket server running on ws://localhost:${PORT}`);
+httpsServer.listen(PORT, () => {
+  console.log(`WebSocket server running on ws://localhost:${PORT}`);
+});
 
 /*Get client IP*/
 function getClientIp(req, ws) {
