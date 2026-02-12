@@ -67,7 +67,7 @@ const wss = new WebSocket.Server({
 });
 
 httpsServer.listen(PORT, () => {
-  console.log(`WebSocket server running on ws://localhost:${PORT}`);
+  console.log(`WebSocket server running on wss://localhost:${PORT}`);
 });
 
 /*Get client IP*/
