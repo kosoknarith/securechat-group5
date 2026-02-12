@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    make-cert": "openssl req -x509 -newkey rsa:4096 -keyout src/server.key -out src/server.cert -days 365 -nodes -subj \"/CN=localhost\""
+    "make-cert": "openssl req -x509 -newkey rsa:4096 -keyout src/server.key -out src/server.cert -days 365 -nodes -subj \"/CN=localhost\""
   },
   "keywords": [],
   "author": "",
