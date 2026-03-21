@@ -1,91 +1,124 @@
-/* most of the layouts patterns are from the Chat_Interface.css  */
 * {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+  font-family: Arial, sans-serif;
 }
 
 html, body {
   height: 100%;
-  font-family: Arial, sans-serif;
 }
 
-.login-container {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-}
-
-.login-header {
-  background-color: #020203;
-  text-align: center;
-  color: white;
-  font-size: 30px;
-  padding: 10px;
-}
-
-/* Middle area fills space */
-.login-main {
-  flex: 1;
-  background-color: #a39c9c; /* matches chat-messages background */
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 15px;
-}
-
-/* Simple centered card */
-.login-card {
-  background: white;
+/* Header */
+.top-header {
+ position: fixed;
+  top: 0;
   width: 100%;
-  max-width: 420px;
-  padding: 25px;
-  border-radius: 6px;
+  background: #1E3A8A;
+  color: white;
+  text-align: center;
+  padding: 15px;
+
+  font-size: 28px;
+  font-weight: 800;   
+  letter-spacing: 1px;
 }
 
-/* Title */
+/* Background */
+body {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+
+  background: linear-gradient(135deg, #4facfe, #8e44ad, #ff6ec4);
+  background-size: 300% 300%;
+  animation: gradientMove 10s ease infinite;
+  overflow: hidden;
+}
+
+/* Gradient animation */
+@keyframes gradientMove {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* Floating shapes */
+body::before,
+body::after {
+  content: "";
+  position: absolute;
+  width: 300px;
+  height: 300px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 20px;
+  transform: rotate(45deg);
+}
+
+body::before {
+  top: -100px;
+  left: -100px;
+}
+
+body::after {
+  bottom: -100px;
+  right: -100px;
+}
+
+/* Container */
+.login-container {
+  z-index: 1;
+  width: 100%;
+}
+
+.login-main {
+  margin-top: 80px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* Card */
+.login-card {
+  background: rgba(255,255,255,0.95);
+  backdrop-filter: blur(10px);
+  width: 320px;
+  padding: 25px;
+  border-radius: 12px;
+  text-align: center;
+}
+
+/* Card title */
 .login-card h2 {
   margin-bottom: 15px;
-  font-size: 22px;
 }
 
-/* Form layout */
-.login-card form {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.login-card label {
-  font-size: 14px;
-}
-
-/* Login input fields */
+/* Inputs */
 .login-card input {
+  width: 100%;
   padding: 10px;
-  font-size: 16px;
+  margin: 8px 0;
   border: none;
-  outline: none;
-  background-color: #bdc3c7; 
+  background: #eee;
 }
 
-/*login input button */
+/* Button */
 .login-card button {
-  margin-top: 8px;
-  padding: 10px;
-  font-size: 16px;
+ width: 100%;
+  padding: 10px 15px;
+  background: #F97316;
+  color: white;
   border: none;
   cursor: pointer;
+
+  font-weight: bold;
+  border-radius: 6px;
+
+  transition: 0.2s ease;
 }
 
-/* Login input hover effect */
 .login-card button:hover {
-  background-color: #273cf5;
-  color: white;
+ background: #ea580c;
+transform: scale(1.05);
 }
-/*
-.login-note {
-  margin-top: 12px;
-  font-size: 13px;
-  color: #333;
-} */

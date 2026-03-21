@@ -1,34 +1,39 @@
 <!DOCTYPE html>
-
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <link rel="stylesheet" href="login.css" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
-  <title>Login - Let's Chat</title>
+  <title>Login - SecureChat</title>
 </head>
 
 <body>
-  <div class="login-container">
-    <h1 class="login-header">Welcome to our chat server</h1>
 
+  <!-- Header -->
+  <header class="top-header">
+    Welcome to our chat server
+  </header>
+
+  <div class="login-container">
+    
     <main class="login-main">
       <div class="login-card">
+
+        <!-- Login  -->
         <h2>Login</h2>
 
         <form>
-          <label for="username">Username</label>
-          <input type="text" id="username" placeholder="Enter username" />
-
-          <label for="password">Password</label>
-          <input type="password" id="password" placeholder="Enter password" />
+          <input type="text" id="username" placeholder="Username" />
+          <input type="password" id="password" placeholder="Password" />
 
           <button type="submit">Sign In</button>
         </form>
 
       </div>
     </main>
+
   </div>
-    <script src="login.js"></script>
+
+  <script src="login.js"></script>
 </body>
 </html>

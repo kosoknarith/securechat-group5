@@ -1,26 +1,47 @@
 <!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>SecureChat</title>
+  <link rel="stylesheet" href="Chat_Interface.css">
+</head>
 
-    <head>
-        <meta charset="UTF-8">
-        <link rel="stylesheet" href="Chat_Interface.css">  
-        <meta name="viewport" content="width=device-width,initial-scale=1.0">
+<body>
 
-        <title>Let's Chat </title>
-    </head>
+<div class="chat-container">
 
-    <body>  
-        <div class="chat-container">
-            <h1 class="chat-header">Welcome to our chat server</h1>
-            <!-- add logout button -->
-            <button id="logoutBtn" type="button">Logout</button>
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <h2>Users</h2>
+    <ul>
+      <li class="active"><span class="status online"></span> You</li>
+      <li><span class="status online"></span> User2</li>
+      <li><span class="status offline"></span> User3</li>
+    </ul>
+  </aside>
 
-            <main class="chat-messages" id="messages"> </main>
-                    
-            <footer class="chat-input">
-                <input type="text" id="messageInput" placeholder="Type a message..." />
-                <button id="sendBtn">Send</button>
-            </footer> 
-        </div>
-        <script src="Chat_Interface.js"></script>
-    </body>
+  <!-- Chat Interface -->
+  <div class="chat-main">
+
+    <header class="chat-header">
+      Chat Room
+      <button id="logoutBtn">Logout</button>
+    </header>
+
+    <main class="chat-messages" id="messages"></main>
+
+    <!-- Typing Indicator -->
+   <div id="typingIndicator" class="typing">Typing...</div>
+
+    <footer class="chat-input">
+      <input type="text" id="messageInput" placeholder="Type a message..." />
+      <button id="sendBtn">Send</button>
+    </footer>
+
+  </div>
+
+</div>
+
+<script src="Chat_Interface.js"></script>
+</body>
 </html>

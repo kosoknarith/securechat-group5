@@ -1,12 +1,13 @@
-
+// Get user info
 const username = sessionStorage.getItem("username");
 const password = sessionStorage.getItem("password");
 
-// If user didn't login, go back
+// Redirect if not logged in
 if (!username || !password) {
   window.location.href = "login.html";
 }
 
+// Clear session on refresh/close
 window.addEventListener("beforeunload", () => {
   sessionStorage.removeItem("username");
   sessionStorage.removeItem("password");
@@ -15,92 +16,139 @@ window.addEventListener("beforeunload", () => {
 const messagesEl = document.getElementById("messages");
 const inputEl = document.getElementById("messageInput");
 const sendBtn = document.getElementById("sendBtn");
+const typingEl = document.getElementById("typingIndicator");
 
 let authed = false;
 let didAuth = false;
+let typingTimeout;
 
-function addLine(text) {
+// Chat bubble
+function addLine(text, type = "other") {
   const div = document.createElement("div");
-  div.textContent = text;
+  div.classList.add("msg", type);
+
+  const message = document.createElement("div");
+  message.textContent = text;
+
+  const time = document.createElement("div");
+  time.classList.add("time");
+
+  const now = new Date();
+  time.textContent = now.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  div.appendChild(message);
+  div.appendChild(time);
+
   messagesEl.appendChild(div);
   messagesEl.scrollTop = messagesEl.scrollHeight;
 }
 
+// WebSocket
 const ws = new WebSocket("wss://localhost:8080");
 
-
+// Logout button
 const logoutBtn = document.getElementById("logoutBtn");
 if (logoutBtn) {
   logoutBtn.addEventListener("click", () => {
-    addLine("Logging out...");
     sessionStorage.removeItem("username");
     sessionStorage.removeItem("password");
     try { ws.close(); } catch {}
     window.location.href = "login.html";
   });
 }
+
+// Connection opened
 ws.onopen = () => {
-  addLine("Connected");
+  addLine("Connected to server", "other");
   ws.send(JSON.stringify({ type: "auth", username, password }));
 };
 
+// Handle messages
 ws.onmessage = (e) => {
   let msg;
-  try { msg = JSON.parse(e.data); } catch { return addLine("RAW: " + e.data); }
+  try {
+    msg = JSON.parse(e.data);
+  } catch {
+    return addLine("RAW: " + e.data, "other");
+  }
 
   if (msg.type === "auth_ok") {
     authed = true;
     didAuth = true;
-    addLine("Logged in as " + username);
+    addLine("Logged in as " + username, "other");
     return;
   }
 
   if (msg.type === "auth_fail") {
-    addLine("Login failed. Redirecting...");
-    sessionStorage.removeItem("username");
-    sessionStorage.removeItem("password");
+    addLine("Login failed. Redirecting...", "other");
+    sessionStorage.clear();
     try { ws.close(); } catch {}
     window.location.href = "login.html";
     return;
   }
 
   if (msg.type === "chat") {
-    addLine(`${msg.from}: ${msg.message}`);
+    addLine(msg.message, "other");
     return;
   }
 
-  // system / error / auth_required
-  addLine(`${msg.type}: ${msg.message ?? ""}`);
+  addLine(msg.type + ": " + (msg.message || ""), "other");
 };
 
+// Connection closed
 ws.onclose = () => {
-  addLine("Disconnected - logging out.");
-  if (didAuth){
-    sessionStorage.removeItem("username");
-    sessionStorage.removeItem("password");
+  if (didAuth) {
+    addLine("Disconnected", "other");
+    sessionStorage.clear();
     window.location.href = "login.html";
   }
 };
 
+// Error
 ws.onerror = () => {
-  addLine("Connection error - logging out.");
   if (didAuth) {
-    sessionStorage.removeItem("username");
-    sessionStorage.removeItem("password");
+    addLine("Connection error", "other");
+    sessionStorage.clear();
     window.location.href = "login.html";
-  } 
+  }
 };
 
+// Send message
 function sendChat() {
-  if (!authed) return addLine("Not authenticated yet.");
   const text = inputEl.value.trim();
   if (!text) return;
 
-  ws.send(JSON.stringify({ type: "chat", message: text }));
+  // Send message
+  addLine(text, "me");
+
+  // Only send if authenticated
+  if (authed) {
+    ws.send(JSON.stringify({ type: "chat", message: text }));
+  }
+
   inputEl.value = "";
 }
 
+// Send button
 sendBtn.addEventListener("click", sendChat);
+
+// Enter key
 inputEl.addEventListener("keydown", (e) => {
   if (e.key === "Enter") sendChat();
+});
+
+// Typing indicator behavior
+inputEl.addEventListener("input", () => {
+  if (!typingEl) return;
+
+  typingEl.style.display = "block";
+  typingEl.textContent = "Typing...";
+
+  clearTimeout(typingTimeout);
+  typingTimeout = setTimeout(() => {
+    typingEl.style.display = "none";
+  }, 1500);
 });

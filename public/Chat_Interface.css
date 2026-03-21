@@ -1,67 +1,198 @@
-/* Welcome to our chat sever */
-h1{
-        background-color: #020203;
-    text-align: center;
-    color: rgb(255, 255, 255);
-    font-size: 30px;
-    padding: 10px;  
+/* Used csuf theme colors White,Blue and Orange  to make the interface  */   
+* {
+  box-sizing: border-box;
+  margin: 0;
+  font-family: Arial;
 }
 
-/*entire interface */
-*{
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
+body {
+  height: 100vh;
+  background: linear-gradient(135deg, #4facfe, #8e44ad, #ff6ec4);
 }
 
-/* Chat container  */
-html, body {
-    height: 100%;
-    font-family: Arial, sans-serif;
-}
-
-/* Top section */
+/* Layout */
 .chat-container {
-    display: flex;
-    flex-direction: column;
-    height: 100vh;
+  display: flex;
+  height: 100vh;
 }
 
-/* Middle section */
+/* Sidebar */
+.sidebar {
+  width: 200px;
+  background: rgba(30, 58, 138, 0.95);
+  color: white;
+  padding: 10px;
+}
+
+.sidebar ul {
+  list-style: none;
+}
+
+.sidebar li {
+  padding: 8px;
+  cursor: pointer;
+}
+
+.sidebar .active,
+.sidebar li:hover {
+  background: #F97316;
+}
+
+/* Status */
+.status {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: 6px;
+}
+
+.online { background: #22c55e; }
+.offline { background: gray; }
+
+/* Chat area */
+.chat-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Header */
+.chat-header {
+  background: #1E3A8A;
+  color: white;
+  padding: 15px;
+  font-size: 22px;
+  font-weight: 700;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* Messages */
 .chat-messages {
-    flex: 1; /* THIS makes it take all remaining space */
-    padding: 15px;
-    overflow-y: auto;
-    background-color: #a39c9c;
+  flex: 1;
+  padding: 15px;
+  overflow-y: auto;
+
+  background: rgba(255, 255, 255, 0.9); 
+  border-radius: 8px;
+  margin: 10px;
 }
 
-/* Bottom section  */
+/* Typing */
+.typing {
+  font-size: 13px;
+  color: gray;
+  margin-left: 10px;
+}
+
+/* Input */
 .chat-input {
-    display: flex;
-    padding: 10px;
-    background-color: #bdc3c7;
+  display: flex;
+  padding: 10px;
+  background: #ddd;
 }
 
-/* Input field and send button */
 .chat-input input {
-    flex: 1;
-    padding: 10px;
-    font-size: 16px;
-    font-weight: 100;
-    border: none;
-    outline: none;
+  flex: 1;
+  padding: 10px;
 }
 
-/* Send button */
 .chat-input button {
-    padding: 10px 20px;
-    font-size: 16px;
-    border: none;
-    cursor: pointer;
+  padding: 10px;
+  margin-left: 5px;
+  background: #F97316;
+  color: white;
+  border: none;
 }
 
-/* Send button hover effect */
-.chat-input button:hover {
-    background-color: #273cf5;
-    color: white;
+.emoji-btn {
+  background: white;
+  color: black;
+}
+#logoutBtn {
+  background: #F97316;
+  color: white;
+  border: none;
+  padding: 8px 14px;
+  cursor: pointer;
+  font-weight: bold;
+  border-radius: 6px;
+  transition: 0.2s ease;
+}
+
+#logoutBtn:hover {
+  background: #ea580c;
+  transform: scale(1.05);
+}
+
+#sendBtn {
+  background: #F97316;
+  color: white;
+  border: none;
+  padding: 10px 15px;
+  cursor: pointer;
+  font-weight: bold;
+  border-radius: 6px;
+}
+
+#sendBtn:hover {
+  background: #ea580c;
+}
+
+/* Chat bubbles container */
+.chat-messages {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Main bubble */
+.msg {
+  max-width: 60%;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 14px;
+  word-wrap: break-word;
+}
+
+/* Sender's messages ) */
+.msg.me {
+  background: #F97316;
+  color: white;
+  align-self: flex-end;
+  border-bottom-right-radius: 0;
+}
+
+/*Receiver's  messages */
+.msg.other {
+  background: white;
+  color: black;
+  align-self: flex-start;
+  border-bottom-left-radius: 0;
+}
+
+/* Timestamp */
+.msg .time {
+  font-size: 10px;
+  opacity: 0.7;
+  margin-top: 4px;
+}
+
+.typing {
+  display: none;
+  align-self: flex-start;
+
+  background: #d1d5db;  
+  color: black;
+
+  padding: 10px 15px;
+  margin: 10px;
+
+  border-radius: 10px;
+  width: fit-content;
+  max-width: 60%;
+
+  font-size: 14px;
 }
