@@ -22,4 +22,20 @@ function isAuthed(ws) {
   return sessions.has(ws);
 }
 
-module.exports = { setUser, getUser, getUsername, clearUser, isAuthed };
+function listOnlineUsers() {
+  const names = new Set();
+  for (const { username } of sessions.values()) {
+    if (username) names.add(username);
+  }
+  return Array.from(names).sort((a, b) => a.localeCompare(b));
+}
+
+function getSocketsByUsername(username) {
+  const set = new Set();
+  for (const [ws, session] of sessions.entries()) {
+    if (session?.username === username) set.add(ws);
+  }
+  return set;
+}
+
+module.exports = { setUser, getUser, getUsername, clearUser, isAuthed, listOnlineUsers, getSocketsByUsername };

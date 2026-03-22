@@ -4,7 +4,8 @@ const fs = require("fs");
 const path = require("path");
 require("dotenv").config({ path: path.join(__dirname, "..", ".env") });
 const { validateCredentials, register } = require("./auth/authService");
-const { setUser, getUsername, clearUser, isAuthed } = require("./auth/sessionStore");
+const { setUser, getUsername, clearUser, isAuthed, listOnlineUsers, getSocketsByUsername } = require("./auth/sessionStore");
+const { validateUsername } = require("./auth/userStore");
 const publicDir = path.join(__dirname, "../../public");
 
 const PORT = 8080;
@@ -99,6 +100,10 @@ function broadcast(obj) {
       } catch {}
     }
   }
+}
+// Updates User list for all clients
+function broadcastUserList() {
+  broadcast({ type: "user_list", users: listOnlineUsers() });
 }
 
 /*Send error then close the connection*/
@@ -227,7 +232,7 @@ wss.on("connection", (ws, req) => {
         });
       }
 
-      const username =        typeof msg.username === "string" ? msg.username.trim() : "";
+      const username = typeof msg.username === "string" ? msg.username.trim() : "";
       const password = typeof msg.password === "string" ? msg.password : "";
 
       // If bad username
@@ -268,10 +273,11 @@ wss.on("connection", (ws, req) => {
           registered: true,
         });
         broadcast({ type: "System", message: `${username} joined` });
+        broadcastUserList();
         return;
       }
 
-      // LOGIN (IMPORTANT: await)
+      // LOGIN
       const ok = await validateCredentials(username, password);
 
       // If login fails
@@ -283,6 +289,7 @@ wss.on("connection", (ws, req) => {
       setUser(ws, username);
       safeSend(ws, { type: "auth_ok", message: `Welcome ${username}`,username });
       broadcast({ type: "System", message: `${username} joined` });
+      broadcastUserList();
       return;
     }
 
@@ -294,8 +301,8 @@ wss.on("connection", (ws, req) => {
 
     /*CHAT*/
     if (type === "chat") {
-      const username = getUsername(ws);
-      const chatKey = username ? `user:${username}` : `ip:${ip}`;
+      const from = getUsername(ws);
+      const chatKey = from ? `user:${from}` : `ip:${ip}`;
 
       const chatRL = checkRateLimit(chatRate, chatKey, CHAT_WINDOW_MS, CHAT_MAX_MSGS);
 
@@ -317,8 +324,31 @@ wss.on("connection", (ws, req) => {
         return safeSend(ws, { type: "error", message: "Message too long" });
       }
 
-      const from = getUsername(ws);
-      broadcast({ type: "chat", from, message: text, ts: Date.now() });
+      const scope = msg.scope === "dm" ? "dm" : "general";
+
+      if (scope === "general") {
+        broadcast({ type: "chat", scope: "general", from, message: text });
+        return;
+      }
+
+      // DM
+      const to = typeof msg.to === "string" ? msg.to.trim() : "";
+      if (!validateUsername(to) || to === from) {
+        return safeSend(ws, { type: "error", message: "Invalid DM target" });
+      }
+
+      const toSockets = getSocketsByUsername(to);
+      const fromSockets = getSocketsByUsername(from);
+
+      if (!toSockets || toSockets.size === 0) {
+        return safeSend(ws, { type: "error", message: "User is offline" });
+      }
+
+      const payload = { type: "chat", scope: "dm", from, to, message: text };
+
+      safeSend(ws, payload);
+      sendToSockets(toSockets, payload);
+      return;
     }
   });
 
@@ -330,6 +360,7 @@ wss.on("connection", (ws, req) => {
 
     // If had username
     if (username) {
+      broadcastUserList();
       broadcast({ type: "System", message: `${username} left` });
     }
   });
@@ -354,3 +385,7 @@ setInterval(() => {
     try { client.ping(); } catch {}
   }
 }, HEARTBEAT_MS);
+
+function sendToSockets(sockets, payload) {
+  for (const s of sockets) safeSend(s, payload);
+}
