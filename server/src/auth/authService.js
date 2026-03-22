@@ -1,12 +1,12 @@
-const USERS = {
-  alice: "1234",
-  bob: "1234",
-  admin: "admin",
-};
+const { createUser, verifyUser } = require("./userStore");
 
-function validateCredentials(username, password) {
-  if (!username || !password) return false;
-  return USERS[username] === password;
+async function register(username, password) {
+  return createUser(username, password);
 }
 
-module.exports = { validateCredentials };
+async function validateCredentials(username, password) {
+  if (!username || !password) return false;
+  return verifyUser(username, password);
+}
+
+module.exports = { register, validateCredentials };

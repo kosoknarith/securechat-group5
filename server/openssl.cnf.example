@@ -1,0 +1,24 @@
+[ req ]
+default_bits       = 4096
+prompt             = no
+default_md         = sha256
+x509_extensions    = v3_req
+distinguished_name = dn
+
+[ dn ]
+C  = US
+ST = State
+L  = City
+O  = SecureChat
+OU = Dev
+CN = localhost
+
+[ v3_req ]
+subjectAltName = @alt_names
+keyUsage = critical, digitalSignature, keyEncipherment
+extendedKeyUsage = serverAuth
+
+[ alt_names ]
+DNS.1 = localhost
+IP.1  = 127.0.0.1
+IP.2  = REPLACE_WITH_SERVER_LAN_IP

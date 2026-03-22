@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.6]
+
+### Added / Changed (LAN + setup)
+- The chat can now be accessed via `https://<SERVER_LAN_IP>:8080` (not just `localhost`).
+- Added a template OpenSSL config (`server/openssl.cnf.example`) for generating a self-signed cert with a LAN IP SAN.
+- Implemented **password hashing** for stored credentials (bcrypt-based; no plaintext passwords).
+- Added **brute-force protection** for authentication.
+
 ## [0.6.1] - 2026-02-11
 ### Fixed
 - Resolved merge conflict in `server/package.json`.

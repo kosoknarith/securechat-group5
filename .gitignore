@@ -1,1 +1,10 @@
 node_modules/
+
+server/openssl.cnf
+
+server/src/server.key
+server/src/server.cert
+
+server/.env
+!server/.env.example
+

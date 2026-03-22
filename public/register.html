@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="stylesheet" href="login.css" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Register - SecureChat</title>
+</head>
+
+<body>
+
+  <!-- Header -->
+  <header class="top-header">
+    Create a new account
+  </header>
+
+  <div class="login-container">
+    <main class="login-main">
+      <div class="login-card">
+
+        <h2>Register</h2>
+
+        <form id="registerForm">
+          <input type="text" id="username" placeholder="Username" required />
+          <input type="password" id="password" placeholder="Password" required />
+          <input type="password" id="confirmPassword" placeholder="Confirm Password" required />
+
+          <button type="submit">Create Account</button>
+        </form>
+        
+        <div
+          id="status"
+          role="status"
+          aria-live="polite"
+          style="margin-top:12px; min-height:20px; text-align:center;"
+        ></div>
+
+        <p style="margin-top:12px;">
+          Already have an account?
+          <a href="login.html">Sign in</a>
+        </p>
+
+      </div>
+    </main>
+  </div>
+
+  <script src="register.js"></script>
+</body>
+</html>

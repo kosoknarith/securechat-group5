@@ -1,11 +1,12 @@
 const WebSocket = require("ws");
 const https = require("https");
 const fs = require("fs");
-const path = require("path"); 
-const { validateCredentials } = require("./auth/authService");
+const path = require("path");
+require("dotenv").config({ path: path.join(__dirname, "..", ".env") });
+const { validateCredentials, register } = require("./auth/authService");
+const { setUser, getUsername, clearUser, isAuthed } = require("./auth/sessionStore");
 const publicDir = path.join(__dirname, "../../public");
 
-const sessions = new Map(); // ws key, value has username
 const PORT = 8080;
 
 /*Security limits*/
@@ -19,8 +20,14 @@ const CHAT_MAX_MSGS = 10; // Chat max messages per window
 const AUTH_WINDOW_MS = 60_000; // Auth window time
 const AUTH_MAX_TRIES = 5; // Auth max attempts per window
 
+const AUTH_USER_WINDOW_MS = 15 * 60_000; // 15 minutes
+const AUTH_USER_MAX_TRIES = 8; // per-username attempts/window
+const LOCKOUT_MS = 5 * 60_000; // 5 minutes locked after too many failures
+
 const chatRate = new Map();
 const authRate = new Map();
+const authUserRate = new Map();   // based on the username being attacked
+const lockedUsers = new Map();    // locked until timestamp
 
 /* Create HTTPS server */
 const httpsServer = https.createServer(
@@ -74,17 +81,6 @@ httpsServer.listen(PORT, () => {
 function getClientIp(req, ws) {
   return req?.socket?.remoteAddress || ws?._socket?.remoteAddress || "unknown";
 }
-
-/*Get username from session, or null*/
-function getUsername(ws) {
-  return sessions.get(ws)?.username ?? null;
-}
-
-/*Check if user is authenticated*/
-function isAuthed(ws) {
-  return sessions.has(ws);
-}
-
 /*Send JSON safely to one client*/
 function safeSend(ws, obj) {
   if (ws.readyState !== WebSocket.OPEN) return;
@@ -156,10 +152,15 @@ setInterval(() => {
   }
 
   for (const [key, entry] of authRate.entries()) {
-    // If entry too old
-    if (now - entry.windowStart > AUTH_WINDOW_MS * 3) {
-      authRate.delete(key);
-    }
+    if (now - entry.windowStart > AUTH_WINDOW_MS * 3) authRate.delete(key);
+  }
+
+  for (const [key, entry] of authUserRate.entries()) {
+    if (now - entry.windowStart > AUTH_USER_WINDOW_MS * 3) authUserRate.delete(key);
+  }
+
+  for (const [u, until] of lockedUsers.entries()) {
+    if (now >= until) lockedUsers.delete(u);
   }
 }, 60_000);
 
@@ -176,7 +177,7 @@ wss.on("connection", (ws, req) => {
   });
 
   /*Handle incoming message*/
-  ws.on("message", (data, isBinary) => {
+  ws.on("message", async (data, isBinary) => {
     // If binary message
     if (isBinary) {
       return closeWithError(ws, "Binary messages not allowed");
@@ -209,14 +210,14 @@ wss.on("connection", (ws, req) => {
     }
 
     // If unknown type
-    if (type !== "auth" && type !== "chat") {
+    if (type !== "auth" && type !== "register" && type !== "chat") {
       return safeSend(ws, { type: "error", message: "Unknown message type" });
     }
 
-    /*AUTH*/
-    if (type === "auth") {
+    /*AUTH + REGISTER*/
+    if (type === "auth" || type === "register") {
       const authKey = `ip:${ip}`;
-      const authRL = checkRateLimit(authRate, authKey, AUTH_WINDOW_MS, AUTH_MAX_TRIES);
+      const authRL = checkRateLimit(authRate, authKey, AUTH_WINDOW_MS, AUTH_MAX_TRIES,);
 
       // If too many auth tries
       if (authRL.limited) {
@@ -226,12 +227,14 @@ wss.on("connection", (ws, req) => {
         });
       }
 
-      const username = typeof msg.username === "string" ? msg.username.trim() : "";
+      const username =        typeof msg.username === "string" ? msg.username.trim() : "";
       const password = typeof msg.password === "string" ? msg.password : "";
 
       // If bad username
       if (!username || username.length > 32) {
-        return safeSend(ws, { type: "auth_fail", message: "Authentication failed" });
+        return safeSend(ws, {type: "auth_fail",
+          message: "Authentication failed",
+        });
       }
 
       // If bad password
@@ -241,18 +244,44 @@ wss.on("connection", (ws, req) => {
 
       // If already authed
       if (isAuthed(ws)) {
-        return safeSend(ws, { type: "error", message: "Already authenticated" });
+        return safeSend(ws, {
+          type: "error",
+          message: "Already authenticated",
+        });
       }
 
-      const ok = validateCredentials(username, password);
+      // REGISTER
+      if (type === "register") {
+        const result = await register(username, password);
+        if (!result?.ok) {
+          return safeSend(ws, {
+            type: "register_fail",
+            message: result?.message || "Registration failed",
+          });
+        }
+
+        setUser(ws, username);
+        safeSend(ws, {
+          type: "auth_ok",
+          message: `Welcome ${username}`,
+          username,
+          registered: true,
+        });
+        broadcast({ type: "System", message: `${username} joined` });
+        return;
+      }
+
+      // LOGIN (IMPORTANT: await)
+      const ok = await validateCredentials(username, password);
 
       // If login fails
       if (!ok) {
-        return safeSend(ws, { type: "auth_fail", message: "Authentication failed" });
+        return safeSend(ws, {type: "auth_fail",message: "Authentication failed",
+        });
       }
 
-      sessions.set(ws, { username });
-      safeSend(ws, { type: "auth_ok", message: `Welcome ${username}` });
+      setUser(ws, username);
+      safeSend(ws, { type: "auth_ok", message: `Welcome ${username}`,username });
       broadcast({ type: "System", message: `${username} joined` });
       return;
     }
@@ -296,7 +325,7 @@ wss.on("connection", (ws, req) => {
   /*Handle disconnect*/
   ws.on("close", () => {
     const username = getUsername(ws);
-    sessions.delete(ws);
+    clearUser(ws);
     console.log("Client disconnected");
 
     // If had username

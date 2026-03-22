@@ -47,7 +47,8 @@ function addLine(text, type = "other") {
 }
 
 // WebSocket
-const ws = new WebSocket("wss://localhost:8080");
+const scheme = location.protocol === "https:" ? "wss" : "ws";
+const ws = new WebSocket(`${scheme}://${location.host}`);
 
 // Logout button
 const logoutBtn = document.getElementById("logoutBtn");
@@ -84,7 +85,7 @@ ws.onmessage = (e) => {
 
   if (msg.type === "auth_fail") {
     addLine("Login failed. Redirecting...", "other");
-    sessionStorage.clear();
+    sessionStorage.removeItem("username");
     try { ws.close(); } catch {}
     window.location.href = "login.html";
     return;
