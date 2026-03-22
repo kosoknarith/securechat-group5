@@ -109,9 +109,10 @@ node src/index.js
 ---
 
 ## Planned Features
-- [ ] Replace hardcoded users and password
+- [X] Replace hardcoded users and password
 - [X] adding a seperate register page or something of that sort
 - [X] allowing use outside localhost
+- [X] direct messages
 
 ## Screenshots
 
@@ -119,3 +120,4 @@ node src/index.js
 |---|---|
 | <img src="docs/screenshots/oldui.png" alt="Old UI" width="350"> | Old UI (before redesign) |
 | <img src="docs/screenshots/newui.png" alt="New UI" width="350"> | New UI (after redesign) |
+| <img src="docs/screenshots/directmessages.png" alt="Direct Message" width="350"> | Direct Message + New UI |

@@ -1,21 +1,21 @@
 # Changelog
 
-## [0.7.0] - 2026-03-22 committed b
+## [0.7.0] - 2026-03-22 committed by Julian
 
 ### Added / Updated
-- Implemented Direct Message (DM) feature. (Julian)
-- Added a User sidebar that displays currently online users. (Julian)
-- Updated to support routing for General Chat and DMs. (Julian)
-- It now shows sender and recipient of messages. (Julian)
-- Server now broadcasts online user updates via `{ type: "user_list", users: [...] }` to keep the sidebar in sync (Julian)
+- Implemented Direct Message (DM) feature.
+- Added a User sidebar that displays currently online users.
+- Updated to support routing for General Chat and DMs.
+- It now shows sender and recipient of messages.
+- Server now broadcasts online user updates via `{ type: "user_list", users: [...] }` to keep the sidebar in sync
 
-## [0.6.6] - 2026-03-21
+## [0.6.6] - 2026-03-21 committed by Julian
 
 ### Added / Changed (LAN + setup)
-- The chat can now be accessed via `https://<SERVER_LAN_IP>:8080` (not just `localhost`). (Julian)
-- Added a template OpenSSL config (`server/openssl.cnf.example`) for generating a self-signed cert with a LAN IP SAN. (Julian)
-- Implemented **password hashing** for stored credentials (bcrypt-based; no plaintext passwords). (Julian)
-- Added **brute-force protection** for authentication. (Julian)
+- The chat can now be accessed via `https://<SERVER_LAN_IP>:8080` (not just `localhost`).
+- Added a template OpenSSL config (`server/openssl.cnf.example`) for generating a self-signed cert with a LAN IP SAN.
+- Implemented **password hashing** for stored credentials (bcrypt-based; no plaintext passwords).
+- Added **brute-force protection** for authentication.
 
 ## [0.6.1] - 2026-02-11
 ### Fixed
@@ -25,7 +25,7 @@
 ### Documentation
 - Added/updated user guide documentation.
 
-## [0.6.0] - 2026-02-11
+## [0.6.0] - 2026-02-11 
 ### Added
 - Added script to generate certification and required dependencies.
 - Updated certificate script to generate files in the correct folder.
