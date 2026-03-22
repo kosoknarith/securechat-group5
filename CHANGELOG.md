@@ -17,7 +17,14 @@
 - Implemented **password hashing** for stored credentials (bcrypt-based; no plaintext passwords).
 - Added **brute-force protection** for authentication.
 
-## [0.6.1] - 2026-02-11
+## [0.6.3] - 2026-02-20 Commited by Jude
+
+### Update
+- Updated the user interface for improved visual design
+- Refined layout and styling for a more modern look and feel
+- Added initial sidebar implementation
+
+## [0.6.1] - 2026-02-11 Commited by Julian
 ### Fixed
 - Resolved merge conflict in `server/package.json`.
 - Corrected quoting issue in configuration/script work.
@@ -25,12 +32,12 @@
 ### Documentation
 - Added/updated user guide documentation.
 
-## [0.6.0] - 2026-02-11 
+## [0.6.0] - 2026-02-11 Commited by Julian
 ### Added
 - Added script to generate certification and required dependencies.
 - Updated certificate script to generate files in the correct folder.
 
-## [0.5.1] - 2026-02-11
+## [0.5.1] - 2026-02-11 Commited by Julian
 ### Changed
 - Updated server behavior so visiting `https://localhost:8080` can default to the login page.
 
@@ -38,12 +45,12 @@
 - Improved disconnect handling (graceful leave behavior).
 - Switched from WS to WSS
 
-## [0.5.0] - 2026-02-11
+## [0.5.0] - 2026-02-11 Commited by Kosoknarith
 ### Added
 - Rate limiting to reduce abuse/spam.
 - Heartbeat ping/pong cleanup to detect dropped connections.
 
-## [0.4.0] - 2026-02-11
+## [0.4.0] - 2026-02-11 Commited by Jude
 ### Added
 - Client login/chat pages connected to the WebSocket backend.
 - Added logout button/behavior in the client.
@@ -57,11 +64,11 @@
 - Removed test folder.
 - Removed `node_modules` from the repository.
 
-## [0.2.0] - 2026-02-09
+## [0.2.0] - 2026-02-09 Commited by Kosoknarith
 ### Added
 - Authentication-gated WebSocket chat (users must log in before chatting).
 - Basic security logout behavior.
 
-## [0.1.0] - 2026-01-30
+## [0.1.0] - 2026-01-30 Commited by Kosoknarith
 ### Added
 - Initial project structure setup.
