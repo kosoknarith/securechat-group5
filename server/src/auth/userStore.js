@@ -45,4 +45,4 @@ async function verifyUser(username, password) {
   return await bcrypt.compare(password + PASSWORD_PEPPER, record.passwordHash);
 }
 
-module.exports = { createUser, verifyUser };
+module.exports = { createUser, verifyUser, validateUsername };
