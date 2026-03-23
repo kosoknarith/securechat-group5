@@ -156,3 +156,50 @@ export async function decryptMessage(payload, recipientPrivateKeyPem) {
 
   return decoder.decode(decryptedBuffer);
 }
+
+// Export public key into PEM text
+async function exportPublicKeyToPem(publicKey) {
+  const spki = await crypto.subtle.exportKey("spki", publicKey);
+  const base64 = arrayBufferToBase64(spki);
+  const lines = base64.match(/.{1,64}/g).join("\n");
+
+  return `-----BEGIN PUBLIC KEY-----\n${lines}\n-----END PUBLIC KEY-----`;
+}
+
+// Export private key into PEM text
+async function exportPrivateKeyToPem(privateKey) {
+  const pkcs8 = await crypto.subtle.exportKey("pkcs8", privateKey);
+  const base64 = arrayBufferToBase64(pkcs8);
+  const lines = base64.match(/.{1,64}/g).join("\n");
+
+  return `-----BEGIN PRIVATE KEY-----\n${lines}\n-----END PRIVATE KEY-----`;
+}
+
+// Generate RSA public and private key pair
+export async function generateKeyPair() {
+  const keyPair = await crypto.subtle.generateKey(
+    {
+      name: "RSA-OAEP",
+      modulusLength: 4096,
+      publicExponent: new Uint8Array([1, 0, 1]),
+      hash: "SHA-256",
+    },
+    true,
+    ["encrypt", "decrypt"]
+  );
+
+  const publicKey = await exportPublicKeyToPem(keyPair.publicKey);
+  const privateKey = await exportPrivateKeyToPem(keyPair.privateKey);
+
+  return { publicKey, privateKey };
+}
+
+// Save private key in browser storage
+export function savePrivateKey(username, privateKeyPem) {
+  localStorage.setItem(`privateKey_${username}`, privateKeyPem);
+}
+
+// Load private key from browser storage
+export function loadPrivateKey(username) {
+  return localStorage.getItem(`privateKey_${username}`);
+}

@@ -1,3 +1,5 @@
+import { generateKeyPair, savePrivateKey } from "./encryption.js";
+
 const form = document.getElementById("registerForm");
 const statusEl = document.getElementById("status");
 
@@ -11,7 +13,7 @@ function wsUrl() {
   return `${scheme}://${location.host}`;
 }
 
-form.addEventListener("submit", (e) => {
+form.addEventListener("submit", async (e) => {
   e.preventDefault();
 
   const username = document.getElementById("username").value.trim();
@@ -27,12 +29,13 @@ form.addEventListener("submit", (e) => {
     alert("Passwords do not match");
     return;
   }
-
+  // Generate key pair for new user
+  const { publicKey, privateKey } = await generateKeyPair();
   const scheme = location.protocol === "https:" ? "wss" : "ws";
   const ws = new WebSocket(`${scheme}://${location.host}`);
 
   ws.addEventListener("open", () => {
-    ws.send(JSON.stringify({ type: "register", username, password }));
+    ws.send(JSON.stringify({ type: "register", username, password, publicKey }));
   });
 
   ws.addEventListener("message", (ev) => {
@@ -53,11 +56,9 @@ form.addEventListener("submit", (e) => {
 
     if (msg.type === "auth_ok" || msg.type === "register_ok") {
       sessionStorage.setItem("username", msg.username || username);
-
-      // If you are NOT using tokens/resume, Chat_Interface.js needs this to auth again:
       sessionStorage.setItem("password", password);
-
-      // If server ever sends token, keep it (doesn't hurt)
+      savePrivateKey(username, privateKey);
+      // If server ever sends token
       if (msg.token) sessionStorage.setItem("token", msg.token);
 
       ws.close();
