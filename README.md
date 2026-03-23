@@ -1,10 +1,21 @@
 # SecureChat
 
 ## SecureChat is a real-time messaging application designed for teams to talk remotely like Slack or Teams. It allows users to message each other over encrypted connections.
----
+
+# Team Contributions
+
+- **Kosoknarith Mey** — implemented encryption files on the server, RSA/AES encryption testing, client-side encrypted direct messaging, automatic key generation during registration, public key storage and lookup, and server relay support for encrypted DM payloads.
+
+- **Julian** — implemented the Direct Message feature, online user sidebar, chat routing between General Chat and DMs, sender/recipient display, online user list broadcast sync, LAN access setup, OpenSSL config template for self-signed certificates, password hashing, and brute-force protection for authentication.
+
+- **Jude** — implemented login/register UI, chat interface styling, and related frontend improvements.
+
+## Attribution Note
+
+This project was completed collaboratively, and individual contributions are credited and based on the project changelog and implemented features.
 
 ## Requirements
-
+ 
 - **Node.js** (tested with **v25.1.0**) + **npm**
 - **Modern browser** (Chrome, Firefox)
 - **OpenSSL** (tested with **v3.4.0**)

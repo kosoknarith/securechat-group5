@@ -1,7 +1,13 @@
 # Changelog
 
-## [0.7.0] - 2026-03-22 committed by Julian
+## [0.8.0] - 2026-03-22 committed by Kosoknarith
+### Added / Updated
+- Added client-side encrypted DM send and receive flow.
+- Updated server to relay encrypted DM payloads.
+- Added automatic key generation during user registration.
+- Added public key storage and lookup for encrypted messaging.
 
+## [0.7.0] - 2026-03-22 committed by Julian
 ### Added / Updated
 - Implemented Direct Message (DM) feature.
 - Added a User sidebar that displays currently online users.
@@ -9,16 +15,25 @@
 - It now shows sender and recipient of messages.
 - Server now broadcasts online user updates via `{ type: "user_list", users: [...] }` to keep the sidebar in sync
 
-## [0.6.6] - 2026-03-21 committed by Julian
-
+## [0.6.10] - 2026-03-21 committed by Julian
 ### Added / Changed (LAN + setup)
 - The chat can now be accessed via `https://<SERVER_LAN_IP>:8080` (not just `localhost`).
 - Added a template OpenSSL config (`server/openssl.cnf.example`) for generating a self-signed cert with a LAN IP SAN.
 - Implemented **password hashing** for stored credentials (bcrypt-based; no plaintext passwords).
 - Added **brute-force protection** for authentication.
 
-## [0.6.3] - 2026-02-20 Commited by Jude
+## [0.6.6] - 2026-03-21 committed by Jude
+- Implemented and enchanced UI updates
 
+## [0.6.5] - 2026-03-15 Commited by Kosoknarith
+### Added new file
+- Add working RSA and AES encryption test
+
+## [0.6.4] - 2026-03-12 Commited by Kosoknarith
+### Added new file
+- Add encryption files to server
+
+## [0.6.3] - 2026-02-20 Commited by Jude
 ### Update
 - Updated the user interface for improved visual design
 - Refined layout and styling for a more modern look and feel
