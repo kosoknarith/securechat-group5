@@ -5,7 +5,7 @@ const path = require("path");
 require("dotenv").config({ path: path.join(__dirname, "..", ".env") });
 const { validateCredentials, register } = require("./auth/authService");
 const { setUser, getUsername, clearUser, isAuthed, listOnlineUsers, getSocketsByUsername } = require("./auth/sessionStore");
-const { validateUsername } = require("./auth/userStore");
+const { validateUsername, getPublicKey } = require("./auth/userStore");
 const publicDir = path.join(__dirname, "../../public");
 
 const PORT = 8080;
@@ -38,7 +38,23 @@ const httpsServer = https.createServer(
     key: fs.readFileSync(path.join(__dirname, "/server.key")),
   },
   (request, response) => {
+    // Return a user's public key
+  if (request.method === "GET" && request.url.startsWith("/public-key?")) {
+    const urlObj = new URL(request.url, `https://${request.headers.host}`);
+    const username = urlObj.searchParams.get("username");
 
+    const publicKey = getPublicKey(username);
+
+    if (!publicKey) {
+      response.writeHead(404, { "Content-Type": "application/json" });
+      response.end(JSON.stringify({ message: "User public key not found" }));
+      return;
+    }
+
+      response.writeHead(200, { "Content-Type": "application/json" });
+      response.end(JSON.stringify({ username, publicKey }));
+      return;
+  }
     let filePath = path.join(publicDir, request.url);
   
 
@@ -172,7 +188,7 @@ setInterval(() => {
 /*Handle new WebSocket connection*/
 wss.on("connection", (ws, req) => {
   const ip = getClientIp(req, ws);
-  console.log("Client connected");
+  ws._loggedIn = false;
 
   /*Heartbeat init*/
   ws.isAlive = true;
@@ -234,6 +250,8 @@ wss.on("connection", (ws, req) => {
 
       const username = typeof msg.username === "string" ? msg.username.trim() : "";
       const password = typeof msg.password === "string" ? msg.password : "";
+      const publicKey = typeof msg.publicKey === "string" ? msg.publicKey.trim() : "";
+
 
       // If bad username
       if (!username || username.length > 32) {
@@ -257,7 +275,14 @@ wss.on("connection", (ws, req) => {
 
       // REGISTER
       if (type === "register") {
-        const result = await register(username, password);
+        if (!publicKey) {
+          return safeSend(ws, {
+            type: "register_fail",
+            message: "Missing public key",
+          });
+        }
+
+        const result = await register(username, password, publicKey);
         if (!result?.ok) {
           return safeSend(ws, {
             type: "register_fail",
@@ -266,6 +291,10 @@ wss.on("connection", (ws, req) => {
         }
 
         setUser(ws, username);
+        if (!ws._loggedIn) {
+          ws._loggedIn = true;
+          console.log("Client connected");
+        }
         safeSend(ws, {
           type: "auth_ok",
           message: `Welcome ${username}`,
@@ -355,18 +384,33 @@ wss.on("connection", (ws, req) => {
     }
   });
 
-  /*Handle disconnect*/
-  ws.on("close", () => {
-    const username = getUsername(ws);
-    clearUser(ws);
-    console.log("Client disconnected");
+/*Handle disconnect*/
+ws.on("close", () => {
+  const username = getUsername(ws);
 
-    // If had username
-    if (username) {
-      broadcastUserList();
+  clearUser(ws);
+
+  let noSocketsLeft = false;
+
+  if (ws._loggedIn && username) {
+    const remainingSockets = getSocketsByUsername(username);
+    noSocketsLeft = !remainingSockets || remainingSockets.size === 0;
+
+    if (noSocketsLeft) {
+      console.log("Client disconnected");
+    }
+  }
+
+  // If had username
+  if (username) {
+    broadcastUserList();
+
+    // Only announce left if this was the last socket
+    if (noSocketsLeft) {
       broadcast({ type: "System", message: `${username} left` });
     }
-  });
+  }
+});
 
   /*Handle socket error*/
   ws.on("error", (err) => {

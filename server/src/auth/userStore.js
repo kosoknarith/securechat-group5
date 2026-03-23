@@ -21,19 +21,30 @@ function validatePassword(p) {
   return true;
 }
 
-async function createUser(username, password) {
+// Create user and store public key
+async function createUser(username, password, publicKey) {
   const u = (username || "").trim();
 
   if (!validateUsername(u) || !validatePassword(password)) {
     return { ok: false, message: "Invalid username or password format" };
   }
+
+  if (!publicKey || typeof publicKey !== "string") {
+    return { ok: false, message: "Missing public key" };
+  }
+
   if (users.has(u)) {
     return { ok: false, message: "Username already exists" };
   }
 
   const passwordHash = await bcrypt.hash(password + PASSWORD_PEPPER, SALT_ROUNDS);
 
-  users.set(u, { passwordHash, createdAt: Date.now() });
+  users.set(u, {
+    passwordHash,
+    publicKey,
+    createdAt: Date.now()
+  });
+
   return { ok: true };
 }
 
@@ -45,4 +56,10 @@ async function verifyUser(username, password) {
   return await bcrypt.compare(password + PASSWORD_PEPPER, record.passwordHash);
 }
 
-module.exports = { createUser, verifyUser, validateUsername };
+function getPublicKey(username) {
+  const u = (username || "").trim();
+  const record = users.get(u);
+  return record ? record.publicKey : null;
+}
+
+module.exports = { createUser, verifyUser, validateUsername, getPublicKey };

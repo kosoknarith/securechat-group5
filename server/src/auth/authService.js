@@ -1,9 +1,11 @@
 const { createUser, verifyUser } = require("./userStore");
 
-async function register(username, password) {
-  return createUser(username, password);
+// Register new user and save public key
+async function register(username, password, publicKey) {
+  return createUser(username, password, publicKey);
 }
 
+// Check login username and password
 async function validateCredentials(username, password) {
   if (!username || !password) return false;
   return verifyUser(username, password);
