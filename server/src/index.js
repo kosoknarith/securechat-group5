@@ -314,13 +314,16 @@ wss.on("connection", (ws, req) => {
         });
       }
 
-      const text = typeof msg.message === "string" ? msg.message.trim() : "";
+      const text = msg.message;
 
       // If empty chat
-      if (!text) return;
-
-      // If chat too long
-      if (text.length > MAX_CHAT_CHARS) {
+      if (text === undefined || text === null || text === "" ||
+      (typeof text === "object" && Object.keys(text).length === 0)) {
+        return;
+      }
+      
+      // Only check length for plain string messages
+      if (typeof text === "string" && text.length > MAX_CHAT_CHARS) {
         return safeSend(ws, { type: "error", message: "Message too long" });
       }
 
