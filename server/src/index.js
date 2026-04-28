@@ -11,7 +11,8 @@ const publicDir = path.join(__dirname, "../../public");
 const PORT = 8080;
 
 /*Security limits*/
-const MAX_FRAME_BYTES = 8 * 1024; // Max bytes per incoming message
+const MAX_FILE_SIZE = 5 * 1024 * 1024;
+const MAX_FRAME_BYTES = 8 * 1024 * 1024; // Max bytes per incoming message
 const MAX_CHAT_CHARS = 500; // Max characters for chat text
 const HEARTBEAT_MS = 30_000; // Ping interval
 
@@ -231,7 +232,7 @@ wss.on("connection", (ws, req) => {
     }
 
     // If unknown type
-    if (type !== "auth" && type !== "register" && type !== "chat") {
+    if (type !== "auth" && type !== "register" && type !== "chat" && type !== "file") {
       return safeSend(ws, { type: "error", message: "Unknown message type" });
     }
 
@@ -370,7 +371,6 @@ wss.on("connection", (ws, req) => {
       }
 
       const toSockets = getSocketsByUsername(to);
-      const fromSockets = getSocketsByUsername(from);
 
       if (!toSockets || toSockets.size === 0) {
         return safeSend(ws, { type: "error", message: "User is offline" });
@@ -382,7 +382,80 @@ wss.on("connection", (ws, req) => {
       sendToSockets(toSockets, payload);
       return;
     }
-  });
+  if (type === "file") {
+  const from = getUsername(ws);
+
+  // Must be authenticated
+  if (!from) {
+    return safeSend(ws, { type: "error", message: "Not authenticated" });
+  }
+
+  // Only allow DM file sharing
+  if (msg.scope !== "dm") {
+    return safeSend(ws, { type: "error", message: "File sharing is DM only" });
+  }
+
+  // Validate recipient
+  const to = typeof msg.to === "string" ? msg.to.trim() : "";
+  if (!validateUsername(to) || to === from) {
+    return safeSend(ws, { type: "error", message: "Invalid file target" });
+  }
+
+  // Validate file info
+  if (typeof msg.fileName !== "string" || !msg.fileName.trim()) {
+    return safeSend(ws, { type: "error", message: "Invalid file name" });
+  }
+
+  if (typeof msg.fileType !== "string") {
+    return safeSend(ws, { type: "error", message: "Invalid file type" });
+  }
+
+  if (typeof msg.fileSize !== "number" || msg.fileSize <= 0) {
+    return safeSend(ws, { type: "error", message: "Invalid file size" });
+  }
+
+  // Validate encrypted payload
+  if (
+    !msg.payload ||
+    typeof msg.payload.encryptedFile !== "string" ||
+    typeof msg.payload.encryptedKey !== "string" ||
+    typeof msg.payload.iv !== "string"
+  ) {
+    return safeSend(ws, { type: "error", message: "Invalid file payload" });
+  }
+
+  const MAX_FILE_SIZE = 5 * 1024 * 1024;
+  if (msg.fileSize > MAX_FILE_SIZE) {
+    return safeSend(ws, { type: "error", message: "File too large" });
+  }
+
+  const toSockets = getSocketsByUsername(to);
+
+  if (!toSockets || toSockets.size === 0) {
+    return safeSend(ws, { type: "error", message: "User is offline" });
+  }
+
+  const payload = {
+    type: "file",
+    scope: "dm",
+    from,
+    to,
+    fileName: msg.fileName,
+    fileType: msg.fileType,
+    fileSize: msg.fileSize,
+    payload: msg.payload,
+  };
+
+  // optional echo to sender
+  safeSend(ws, payload);
+
+  // send to recipient
+  sendToSockets(toSockets, payload);
+  return;
+ }
+  
+});
+  
 
 /*Handle disconnect*/
 ws.on("close", () => {

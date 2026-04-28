@@ -1,5 +1,10 @@
-import { encryptMessage, decryptMessage, loadPrivateKey } from "./encryption.js";
-
+import {
+  encryptMessage,
+  decryptMessage,
+  encryptFile,
+  decryptFile,
+  loadPrivateKey
+} from "./encryption.js";
 // Get user info
 const username = sessionStorage.getItem("username");
 const password = sessionStorage.getItem("password");
@@ -18,6 +23,8 @@ window.addEventListener("beforeunload", () => {
 const messagesEl = document.getElementById("messages");
 const inputEl = document.getElementById("messageInput");
 const sendBtn = document.getElementById("sendBtn");
+const fileInput = document.getElementById("fileInput");
+const sendFileBtn = document.getElementById("sendFileBtn");
 const typingEl = document.getElementById("typingIndicator");
 const usersListEl = document.getElementById("usersList");
 const chatTitleEl = document.getElementById("chatTitle");
@@ -33,7 +40,9 @@ let activeChat = "general";
 const conversations = new Map([["general", []]]);
 
 function getConversation(key) {
-  if (!conversations.has(key)) conversations.set(key, []);
+  if (!conversations.has(key)) {
+    conversations.set(key, []);
+  }
   return conversations.get(key);
 }
 
@@ -46,6 +55,19 @@ function renderMessages() {
       addLine(m.message, "other");
       continue;
     }
+
+    if (m.kind === "file") {
+      const isMe = m.from === username;
+      const type = isMe ? "me" : "other";
+
+      addFileLine(
+        m.downloadUrl,
+        m.fileName,
+        type
+      );
+      continue;
+    }
+
     const isMe = m.from === username;
     let text = typeof m.message === "string" ? m.message : "[Encrypted message]";
     let type = "me";
@@ -59,8 +81,36 @@ function renderMessages() {
   }
 }
 
+// File message renderer
+function addFileLine(downloadUrl, fileName, type = "other") {
+  const div = document.createElement("div");
+  div.classList.add("msg", type);
+
+  const link = document.createElement("a");
+  link.href = downloadUrl;
+  link.download = fileName;
+  link.textContent = `Download ${fileName}`;
+  link.style.display = "block";
+  link.style.fontWeight = "bold";
+
+  const time = document.createElement("div");
+  time.classList.add("time");
+
+  const now = new Date();
+  time.textContent = now.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  div.appendChild(link);
+  div.appendChild(time);
+
+  messagesEl.appendChild(div);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
 function chatTitleFor(key) {
-  return key === "general" ? "General" : "DM: " + key;
+  return key === "general" ? "General" : key;
 }
 
 function setActiveChat(key) {
@@ -74,6 +124,7 @@ function setActiveChat(key) {
     chatTitleEl.textContent = chatTitleFor(key);
   }
 
+  renderSidebar();
   renderMessages();
 }
 
@@ -270,8 +321,53 @@ ws.onmessage = async (e) => {
     return;
   }
 
+  //  add receive logic
+  if (msg.type === "file" && msg.scope === "dm") {
+    const from = typeof msg.from === "string" ? msg.from : "";
+    if (!from) return;
+
+    if (from === username) {
+      return;
+    }
+
+    const myPrivateKey = loadPrivateKey(username);
+    if (!myPrivateKey) {
+      console.error("No private key found for logged-in user:", username);
+      return;
+    }
+
+    try {
+      const decryptedBuffer = await decryptFile(msg.payload, myPrivateKey);
+
+      const blob = new Blob([decryptedBuffer], {
+        type: msg.fileType || "application/octet-stream",
+      });
+
+      const downloadUrl = URL.createObjectURL(blob);
+
+      getConversation(from).push({
+        kind: "file",
+        from,
+        to: msg.to || "",
+        fileName: msg.fileName,
+        downloadUrl,
+      });
+
+      if (activeChat === from) {
+        renderMessages();
+      }
+    } catch (err) {
+      console.error("Failed to decrypt file:", err);
+    }
+
+   return;
+  }
+  
   addLine(msg.type + ": " + (msg.message || ""), "other");
+
 };
+
+
 
 // Connection closed
 ws.onclose = () => {
@@ -344,13 +440,97 @@ async function sendChat() {
   inputEl.value = "";
 }
 
+// Send file
+async function sendFile() {
+  const file = fileInput.files[0];
+
+  if (!file) {
+    alert("Please choose a file first.");
+    return;
+  }
+
+  if (!authed) {
+    return;
+  }
+
+  if (activeChat === "general") {
+    alert("File sharing is only for direct messages.");
+    return;
+  }
+
+  const maxSize = 5 * 1024 * 1024;
+  if (file.size > maxSize) {
+    alert("File too large. Max 5MB.");
+    return;
+  }
+
+  let recipientPublicKey;
+
+  try {
+    recipientPublicKey = await fetchPublicKey(activeChat);
+  } catch (err) {
+    console.error("Failed to get public key:", err);
+    alert("Could not get recipient public key.");
+    return;
+  }
+
+  try {
+    const fileBuffer = await file.arrayBuffer();
+    const encryptedPayload = await encryptFile(fileBuffer, recipientPublicKey);
+
+    ws.send(JSON.stringify({
+      type: "file",
+      scope: "dm",
+      to: activeChat,
+      fileName: file.name,
+      fileType: file.type || "application/octet-stream",
+      fileSize: file.size,
+      payload: encryptedPayload
+    }));
+
+    const localUrl = URL.createObjectURL(file);
+    getConversation(activeChat).push({
+      kind: "file",
+      from: username,
+      to: activeChat,
+      fileName: file.name,
+      downloadUrl: localUrl,
+    });
+
+    renderMessages();
+    // Reset
+    if (fileInput) fileInput.value = "";
+    if (fileNameEl) fileNameEl.textContent = "No file chosen";
+  } catch (err) {
+    console.error("Failed to encrypt/send file:", err);
+    alert("Failed to send file.");
+  }
+}
+
 // Send button
 sendBtn.addEventListener("click", sendChat);
+if (sendFileBtn) {
+  sendFileBtn.addEventListener("click", sendFile);
+}
 
 // Enter key
 inputEl.addEventListener("keydown", (e) => {
   if (e.key === "Enter") sendChat();
 });
+
+const fileNameEl = document.getElementById("fileName");
+
+if (fileInput && fileNameEl) {
+  fileInput.addEventListener("change", () => {
+    fileNameEl.textContent = fileInput.files[0]
+      ? fileInput.files[0].name
+      : "No file chosen";
+  });
+}
+
+// Reset if send file
+fileInput.value = "";
+fileNameEl.textContent = "No file chosen";
 
 // Typing indicator behavior
 inputEl.addEventListener("input", () => {

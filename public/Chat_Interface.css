@@ -127,7 +127,8 @@ body {
   transform: scale(1.05);
 }
 
-#sendBtn {
+#sendBtn,
+#sendFileBtn {
   background: #F97316;
   color: white;
   border: none;
@@ -137,8 +138,70 @@ body {
   border-radius: 6px;
 }
 
-#sendBtn:hover {
+#sendBtn:hover,
+#sendFileBtn:hover {
   background: #ea580c;
+}
+
+/* Attach Button */
+#attachFileBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 38px;
+  min-width: 42px;
+  padding: 0 12px;
+  background: #F97316;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 18px;
+  font-weight: bold;
+  transition: 0.2s ease;
+}
+
+#attachFileBtn:hover {
+  background: #ea580c;
+}
+
+.file-name {
+  font-size: 14px;
+  color: black;
+  max-width: 160px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Input */
+.chat-input {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px;
+  background: #ddd;
+  flex-wrap: wrap;
+}
+
+#messageInput {
+  flex: 1;
+  min-width: 220px;
+  padding: 10px;
+}
+
+#fileInput {
+  flex: 0 0 auto;
+  max-width: 220px;
+  padding: 0;
+}
+
+.chat-input button {
+  padding: 10px;
+  margin-left: 5px;
+  background: #F97316;
+  color: white;
+  border: none;
 }
 
 /* Chat bubbles container */

@@ -157,6 +157,92 @@ export async function decryptMessage(payload, recipientPrivateKeyPem) {
   return decoder.decode(decryptedBuffer);
 }
 
+// Encrypt file bytes with AES, then encrypt AES key with RSA
+export async function encryptFile(fileBuffer, recipientPublicKeyPem) {
+  // Make random AES key
+  const aesKey = await crypto.subtle.generateKey(
+    {
+      name: "AES-GCM",
+      length: 256,
+    },
+    true,
+    ["encrypt", "decrypt"]
+  );
+
+  // Make random IV
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+
+  // Encrypt file bytes with AES
+  const encryptedFileBuffer = await crypto.subtle.encrypt(
+    {
+      name: "AES-GCM",
+      iv,
+    },
+    aesKey,
+    fileBuffer
+  );
+
+  // Export AES key
+  const rawAesKey = await crypto.subtle.exportKey("raw", aesKey);
+
+  // Load receiver public key
+  const recipientPublicKey = await importPublicKey(recipientPublicKeyPem);
+
+  // Encrypt AES key with RSA
+  const encryptedKeyBuffer = await crypto.subtle.encrypt(
+    {
+      name: "RSA-OAEP",
+    },
+    recipientPublicKey,
+    rawAesKey
+  );
+
+  // Return encrypted file data
+  return {
+    encryptedFile: arrayBufferToBase64(encryptedFileBuffer),
+    encryptedKey: arrayBufferToBase64(encryptedKeyBuffer),
+    iv: arrayBufferToBase64(iv.buffer),
+  };
+}
+
+// Decrypt AES key with RSA, then decrypt file bytes with AES
+export async function decryptFile(payload, recipientPrivateKeyPem) {
+  // Load private key
+  const recipientPrivateKey = await importPrivateKey(recipientPrivateKeyPem);
+
+  // Decrypt AES key
+  const rawAesKey = await crypto.subtle.decrypt(
+    {
+      name: "RSA-OAEP",
+    },
+    recipientPrivateKey,
+    base64ToArrayBuffer(payload.encryptedKey)
+  );
+
+  // Load AES key
+  const aesKey = await crypto.subtle.importKey(
+    "raw",
+    rawAesKey,
+    {
+      name: "AES-GCM",
+    },
+    false,
+    ["decrypt"]
+  );
+
+  // Decrypt file bytes
+  const decryptedBuffer = await crypto.subtle.decrypt(
+    {
+      name: "AES-GCM",
+      iv: new Uint8Array(base64ToArrayBuffer(payload.iv)),
+    },
+    aesKey,
+    base64ToArrayBuffer(payload.encryptedFile)
+  );
+
+  return decryptedBuffer;
+}
+
 // Export public key into PEM text
 async function exportPublicKeyToPem(publicKey) {
   const spki = await crypto.subtle.exportKey("spki", publicKey);
