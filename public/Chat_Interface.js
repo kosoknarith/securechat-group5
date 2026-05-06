@@ -185,9 +185,13 @@ function addLine(text, type = "other") {
   messagesEl.scrollTop = messagesEl.scrollHeight;
 }
 
-// WebSocket
-const scheme = location.protocol === "https:" ? "wss" : "ws";
-const ws = new WebSocket(`${scheme}://${location.host}`);
+// WebSocket URL
+const WS_URL =
+  location.hostname === "localhost" || location.hostname === "127.0.0.1"
+    ? "ws://localhost:8080"
+    : "wss://YOUR-RENDER-APP-NAME.onrender.com";
+
+const ws = new WebSocket(WS_URL);
 
 // Logout button
 const logoutBtn = document.getElementById("logoutBtn");
@@ -420,9 +424,6 @@ async function sendChat() {
         return;
       }
       const encryptedPayload = await encryptMessage(text, recipientPublicKey);
-
-      console.log("DM plaintext:", text);
-      console.log("DM encrypted payload:", encryptedPayload);
 
       ws.send(JSON.stringify({ type: "chat", scope: "dm", to: activeChat, message: encryptedPayload }));
       

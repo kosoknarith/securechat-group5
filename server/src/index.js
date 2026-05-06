@@ -1,5 +1,5 @@
 const WebSocket = require("ws");
-const https = require("https");
+const http = require("http");
 const fs = require("fs");
 const path = require("path");
 require("dotenv").config({ path: path.join(__dirname, "..", ".env") });
@@ -8,7 +8,7 @@ const { setUser, getUsername, clearUser, isAuthed, listOnlineUsers, getSocketsBy
 const { validateUsername, getPublicKey } = require("./auth/userStore");
 const publicDir = path.join(__dirname, "../../public");
 
-const PORT = 8080;
+const PORT = process.env.PORT || 8080;
 
 /*Security limits*/
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
@@ -31,68 +31,72 @@ const authRate = new Map();
 const authUserRate = new Map();   // based on the username being attacked
 const lockedUsers = new Map();    // locked until timestamp
 
-/* Create HTTPS server */
-const httpsServer = https.createServer(
-  {
-    // loads self-signed cert and key from file
-    cert: fs.readFileSync(path.join(__dirname, "/server.cert")),
-    key: fs.readFileSync(path.join(__dirname, "/server.key")),
-  },
-  (request, response) => {
-    // Return a user's public key
-  if (request.method === "GET" && request.url.startsWith("/public-key?")) {
-    const urlObj = new URL(request.url, `https://${request.headers.host}`);
-    const username = urlObj.searchParams.get("username");
+/* Render HTTP server */
+const server = http.createServer((request, response) => {
+  const parsedUrl = new URL(request.url, `http://${request.headers.host}`);
 
-    const publicKey = getPublicKey(username);
+  // Public key lookup for encrypted DM
+  if (request.method === "GET" && parsedUrl.pathname === "/public-key") {
+    const targetUsername = parsedUrl.searchParams.get("username");
 
-    if (!publicKey) {
-      response.writeHead(404, { "Content-Type": "application/json" });
-      response.end(JSON.stringify({ message: "User public key not found" }));
-      return;
+    if (!targetUsername || !validateUsername(targetUsername)) {
+      response.statusCode = 400;
+      response.setHeader("Content-Type", "application/json");
+      return response.end(JSON.stringify({
+        message: "Invalid username"
+      }));
     }
 
-      response.writeHead(200, { "Content-Type": "application/json" });
-      response.end(JSON.stringify({ username, publicKey }));
-      return;
+    const publicKey = getPublicKey(targetUsername);
+
+    if (!publicKey) {
+      response.statusCode = 404;
+      response.setHeader("Content-Type", "application/json");
+      return response.end(JSON.stringify({
+        message: "Public key not found"
+      }));
+    }
+
+    response.statusCode = 200;
+    response.setHeader("Content-Type", "application/json");
+    return response.end(JSON.stringify({
+      publicKey
+    }));
   }
-    let filePath = path.join(publicDir, request.url);
-  
 
-  // if connecting to http://localhost:8080/ will land on login page
-  if (request.url === "/") {
-  filePath = path.join(publicDir, "login.html");
-  }
+  let filePath = path.join(
+    publicDir,
+    parsedUrl.pathname === "/" ? "login.html" : parsedUrl.pathname
+  );
 
-    // reads requested file
-    fs.readFile(filePath, (err, data) => {
-      // error if file not found
-      if (err) {
-        response.statusCode = 404;
-        return response.end("Not Found");
-      }
+  // reads requested file
+  fs.readFile(filePath, (err, data) => {
+    // error if file not found
+    if (err) {
+      response.statusCode = 404;
+      return response.end("Not Found");
+    }
 
-      // Sets content type
-      const ext = path.extname(filePath);
-      
-      // only handles html, css, js
-      if (ext === ".html") response.setHeader("Content-Type", "text/html");
-      if (ext === ".css") response.setHeader("Content-Type", "text/css");
-      if (ext === ".js") response.setHeader("Content-Type", "application/javascript");
+    // Sets content type
+    const ext = path.extname(filePath);
 
-      response.end(data);
-    });
-  }
-);
+    // only handles html, css, js
+    if (ext === ".html") response.setHeader("Content-Type", "text/html");
+    if (ext === ".css") response.setHeader("Content-Type", "text/css");
+    if (ext === ".js") response.setHeader("Content-Type", "application/javascript");
+
+    response.end(data);
+  });
+});
 
 
 const wss = new WebSocket.Server({
-  server: httpsServer,
+  server,
   maxPayload: MAX_FRAME_BYTES,
 });
 
-httpsServer.listen(PORT, () => {
-  console.log(`WebSocket server running on wss://localhost:${PORT}`);
+server.listen(PORT, () => {
+  console.log(`SecureChat server running on port ${PORT}`);
 });
 
 /*Get client IP*/

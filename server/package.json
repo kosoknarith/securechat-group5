@@ -4,6 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "start": "node src/index.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "make-cert": "openssl req -x509 -newkey rsa:4096 -nodes -days 365 -keyout src/server.key -out src/server.cert -config openssl.cnf"
   },
