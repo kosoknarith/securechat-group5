@@ -32,6 +32,12 @@ form.addEventListener("submit", async (e) => {
     setStatus("Passwords do not match", true);
     return;
   }
+    const turnstileToken = document.querySelector('[name="cf-turnstile-response"]')?.value;
+
+    if (!turnstileToken) {
+      setStatus("Please complete the security check.", true);
+      return;
+    }
 
   setBusy(true, "Generating keys...");
   setStatus("Generating encryption keys (this can take a few seconds)...");
@@ -67,7 +73,13 @@ form.addEventListener("submit", async (e) => {
 
   ws.addEventListener("open", () => {
     clearTimeout(connectTimeout);
-    ws.send(JSON.stringify({ type: "register", username, password, publicKey }));
+    ws.send(JSON.stringify({
+      type: "register",
+      username,
+      password,
+      publicKey,
+      turnstileToken
+    }));
   });
 
   ws.addEventListener("message", (ev) => {

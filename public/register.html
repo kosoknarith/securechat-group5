@@ -23,6 +23,10 @@
           <input type="text" id="username" placeholder="Username" autocomplete="username" required />
           <input type="password" id="password" placeholder="Password" autocomplete="new-password" required />
           <input type="password" id="confirmPassword" placeholder="Confirm Password" autocomplete="new-password" required />
+          <div
+            class="cf-turnstile"
+            data-sitekey="0x4AAAAAADLA3D84uqM0g9fO">
+          </div>
 
           <button type="submit" id="registerBtn">Create Account</button>
         </form>
@@ -37,7 +41,7 @@
       </div>
     </main>
   </div>
-
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
   <script src="config.js"></script>
   <script type="module" src="register.js"></script>
 </body>
