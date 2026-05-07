@@ -1,7 +1,7 @@
 // To run locally for testing, leave BACKEND_HOST empty - it falls back to
 // the same host that served this page 
 
-const BACKEND_HOST = "securechat-group5.onrender.com"; 
+const BACKEND_HOST = "securechat-group5.onrender.com"; // 
 
 // ---- Do not edit below this line ----
 

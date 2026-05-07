@@ -36,6 +36,7 @@ let authed = false;
 let onlineUsers = [];
 let activeChat = "general";
 let typingTimeout;
+let seenFirstUserList = false;  // resets on reconnect
 
 // Reconnect state
 let ws = null;
@@ -44,12 +45,52 @@ let reconnectTimer = null;
 let manualClose = false;
 let hasEverConnected = false;
 
-// Conversation history
-const conversations = new Map([["general", []]]);
+const HISTORY_KEY = `securechat:history:${username}`;
+const MAX_PER_CONVO = 200;
+
+function loadHistory() {
+  try {
+    const raw = localStorage.getItem(HISTORY_KEY);
+    if (!raw) return new Map([["general", []]]);
+    const obj = JSON.parse(raw);
+    const m = new Map();
+    for (const [k, v] of Object.entries(obj)) {
+      if (Array.isArray(v)) m.set(k, v);
+    }
+    if (!m.has("general")) m.set("general", []);
+    return m;
+  } catch {
+    return new Map([["general", []]]);
+  }
+}
+
+function saveHistory() {
+  try {
+    const obj = {};
+    for (const [k, v] of conversations) {
+      // Drop file entries (blob URLs don't survive a reload)
+      const cleaned = v.filter((m) => m.kind !== "file");
+      // Cap each conversation
+      obj[k] = cleaned.slice(-MAX_PER_CONVO);
+    }
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(obj));
+  } catch (err) {
+    // Quota exceeded or storage disabled - just warn, don't crash
+    console.warn("Could not save chat history:", err);
+  }
+}
+
+// Conversation history (loaded from localStorage if present)
+const conversations = loadHistory();
 
 function getConversation(key) {
   if (!conversations.has(key)) conversations.set(key, []);
   return conversations.get(key);
+}
+
+function pushAndSave(key, entry) {
+  getConversation(key).push(entry);
+  saveHistory();
 }
 
 // ---- Connection status bar ----
@@ -219,7 +260,10 @@ function connect() {
 
     setConnStatus("offline", "offline - reconnecting...");
     authed = false;
+    seenFirstUserList = false; // get fresh baseline on next user_list
 
+    // If we never got auth_ok, the credentials are likely bad - go to login.
+    // If we did, try to reconnect silently.
     if (!sessionStorage.getItem("username")) {
       window.location.href = "login.html";
       return;
@@ -258,15 +302,11 @@ async function handleMessage(e) {
     authed = true;
     setConnStatus("online", "online");
 
-    // Only show login banner the first time
-    const general = getConversation("general");
-    const alreadyLoggedBanner = general.some(
-      (m) => m.kind === "system" && m.message === `Logged in as ${username}`
-    );
-    if (!alreadyLoggedBanner) {
-      general.push({ kind: "system", message: "Logged in as " + username });
+    // Always show login/reconnect banner (don't dedupe - history is persistent now)
+    if (!hasEverConnected) {
+      pushAndSave("general", { kind: "system", message: "Logged in as " + username });
     } else {
-      general.push({ kind: "system", message: "Reconnected" });
+      pushAndSave("general", { kind: "system", message: "Reconnected" });
     }
     if (activeChat === "general") renderMessages();
     return;
@@ -283,13 +323,40 @@ async function handleMessage(e) {
   }
 
   if (msg.type === "user_list" && Array.isArray(msg.users)) {
+    const previousUsers = new Set(onlineUsers);
+    const currentUsers = new Set(msg.users);
+
+    // Skip diff on the very first user_list - we don't have a baseline
+    if (seenFirstUserList) {
+      // Find users who newly joined
+      for (const u of currentUsers) {
+        if (u !== username && !previousUsers.has(u)) {
+          pushAndSave("general", {
+            kind: "system",
+            message: `${u} is online`,
+          });
+        }
+      }
+      // Find users who left
+      for (const u of previousUsers) {
+        if (u !== username && !currentUsers.has(u)) {
+          pushAndSave("general", {
+            kind: "system",
+            message: `${u} went offline`,
+          });
+        }
+      }
+      if (activeChat === "general") renderMessages();
+    }
+    seenFirstUserList = true;
+
     onlineUsers = msg.users;
     renderSidebar();
     return;
   }
 
   if (msg.type === "System") {
-    getConversation("general").push({ kind: "system", message: msg.message || "" });
+    pushAndSave("general", { kind: "system", message: msg.message || "" });
     if (activeChat === "general") renderMessages();
     return;
   }
@@ -302,7 +369,7 @@ async function handleMessage(e) {
     if (!from) return;
 
     if (scope === "general") {
-      getConversation("general").push({ kind: "chat", from, message });
+      pushAndSave("general", { kind: "chat", from, message });
       if (activeChat === "general") renderMessages();
       return;
     }
@@ -324,7 +391,7 @@ async function handleMessage(e) {
 
     if (from === username) return;
 
-    getConversation(from).push({
+    pushAndSave(from, {
       kind: "chat",
       from,
       to: msg.to || "",
@@ -398,7 +465,7 @@ async function sendChat() {
       message: encryptedPayload,
     }));
 
-    getConversation(activeChat).push({
+    pushAndSave(activeChat, {
       kind: "chat",
       from: username,
       to: activeChat,
@@ -455,6 +522,7 @@ async function sendFile() {
     }));
 
     const localUrl = URL.createObjectURL(file);
+    // Files are session-only - don't pushAndSave (blob URL won't survive reload)
     getConversation(activeChat).push({
       kind: "file",
       from: username,
@@ -482,6 +550,19 @@ if (logoutBtn) {
     sessionStorage.removeItem("password");
     try { ws && ws.close(); } catch {}
     window.location.href = "login.html";
+  });
+}
+
+const clearHistoryBtn = document.getElementById("clearHistoryBtn");
+if (clearHistoryBtn) {
+  clearHistoryBtn.addEventListener("click", () => {
+    if (!confirm("Delete all saved chat history on this browser? This cannot be undone.")) return;
+    try {
+      localStorage.removeItem(HISTORY_KEY);
+    } catch {}
+    conversations.clear();
+    conversations.set("general", []);
+    renderMessages();
   });
 }
 
@@ -530,23 +611,26 @@ if (emojiBtn && emojiPicker) {
     btn.type = "button";
     btn.className = "emoji-cell";
     btn.textContent = e;
-    btn.addEventListener("click", () => {
+    btn.addEventListener("click", (ev) => {
+      ev.stopPropagation();
       insertAtCursor(inputEl, e);
       emojiPicker.hidden = true;
     });
     emojiPicker.appendChild(btn);
   }
 
-  // Toggle picker
   emojiBtn.addEventListener("click", (ev) => {
     ev.stopPropagation();
-    emojiPicker.hidden = !emojiPicker.hidden;
+    ev.preventDefault();
+    const isHidden = emojiPicker.hidden;
+    emojiPicker.hidden = !isHidden;
   });
 
-  // Click outside to close
-  document.addEventListener("click", (ev) => {
+  document.addEventListener("mousedown", (ev) => {
     if (emojiPicker.hidden) return;
-    if (ev.target === emojiBtn || emojiPicker.contains(ev.target)) return;
+    // If the click is on the button or inside the picker, ignore it
+    if (emojiBtn.contains(ev.target)) return;
+    if (emojiPicker.contains(ev.target)) return;
     emojiPicker.hidden = true;
   });
 
@@ -556,6 +640,7 @@ if (emojiBtn && emojiPicker) {
   });
 }
 
+// Local typing indicator 
 inputEl.addEventListener("input", () => {
   if (!typingEl) return;
   typingEl.style.display = "block";
@@ -569,9 +654,13 @@ inputEl.addEventListener("input", () => {
 // Clear creds on full page close 
 window.addEventListener("pagehide", (e) => {
   if (!e.persisted) {
-    // browser is unloading; we leave session for back-button restore
+    // browser is unloading
   }
 });
+
+// Render any saved history immediately on load, before the WS connects
+renderSidebar();
+renderMessages();
 
 // Start
 connect();

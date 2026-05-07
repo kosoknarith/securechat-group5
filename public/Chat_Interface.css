@@ -140,6 +140,12 @@ body {
   50%      { opacity: 0.55; }
 }
 
+.chat-header-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
 #logoutBtn {
   background: #F97316;
   color: white;
@@ -154,6 +160,23 @@ body {
 #logoutBtn:hover {
   background: #ea580c;
   transform: scale(1.05);
+}
+
+#clearHistoryBtn {
+  background: transparent;
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  padding: 7px 12px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 6px;
+  transition: 0.2s ease;
+}
+
+#clearHistoryBtn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: white;
 }
 
 /* Messages area */
@@ -305,6 +328,10 @@ body {
   grid-template-columns: repeat(6, 1fr);
   gap: 4px;
   z-index: 50;
+}
+
+.emoji-picker[hidden] {
+  display: none;
 }
 
 .emoji-cell {
