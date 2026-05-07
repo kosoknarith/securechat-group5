@@ -2,15 +2,18 @@ import { generateKeyPair, savePrivateKey } from "./encryption.js";
 
 const form = document.getElementById("registerForm");
 const statusEl = document.getElementById("status");
+const registerBtn = document.getElementById("registerBtn");
 
 function setStatus(text, isError = false) {
+  if (!statusEl) return;
   statusEl.textContent = text;
-  statusEl.style.color = isError ? "crimson" : "inherit";
+  statusEl.style.color = isError ? "#b91c1c" : "#1E3A8A";
 }
 
-function wsUrl() {
-  const scheme = location.protocol === "https:" ? "wss" : "ws";
-  return `${scheme}://${location.host}`;
+function setBusy(busy, label = "Creating account...") {
+  if (!registerBtn) return;
+  registerBtn.disabled = busy;
+  registerBtn.textContent = busy ? label : "Create Account";
 }
 
 form.addEventListener("submit", async (e) => {
@@ -21,20 +24,49 @@ form.addEventListener("submit", async (e) => {
   const confirm = document.getElementById("confirmPassword").value;
 
   if (!username || !password) {
-    alert("Please enter username and password");
+    setStatus("Please enter username and password", true);
     return;
   }
 
   if (password !== confirm) {
-    alert("Passwords do not match");
+    setStatus("Passwords do not match", true);
     return;
   }
-  // Generate key pair for new user
-  const { publicKey, privateKey } = await generateKeyPair();
-  const scheme = location.protocol === "https:" ? "wss" : "ws";
-  const ws = new WebSocket(`${scheme}://${location.host}`);
+
+  setBusy(true, "Generating keys...");
+  setStatus("Generating encryption keys (this can take a few seconds)...");
+
+  let publicKey, privateKey;
+  try {
+    const keys = await generateKeyPair();
+    publicKey = keys.publicKey;
+    privateKey = keys.privateKey;
+  } catch (err) {
+    setStatus("Failed to generate keys. Your browser may not support WebCrypto.", true);
+    setBusy(false);
+    return;
+  }
+
+  setStatus("Connecting to server...");
+  setBusy(true, "Registering...");
+
+  let ws;
+  try {
+    ws = new WebSocket(window.SecureChatConfig.wsUrl);
+  } catch (err) {
+    setStatus("Could not start connection.", true);
+    setBusy(false);
+    return;
+  }
+
+  const connectTimeout = setTimeout(() => {
+    setStatus("Server is taking too long to respond.", true);
+    setBusy(false);
+    try { ws.close(); } catch {}
+  }, 10000);
 
   ws.addEventListener("open", () => {
+    clearTimeout(connectTimeout);
     ws.send(JSON.stringify({ type: "register", username, password, publicKey }));
   });
 
@@ -43,14 +75,16 @@ form.addEventListener("submit", async (e) => {
     try {
       msg = JSON.parse(ev.data);
     } catch {
-      alert("Bad server response");
-      ws.close();
+      setStatus("Bad server response", true);
+      setBusy(false);
+      try { ws.close(); } catch {}
       return;
     }
 
     if (msg.type === "register_fail" || msg.type === "auth_fail" || msg.type === "error") {
-      alert(msg.message || "Registration failed");
-      ws.close();
+      setStatus(msg.message || "Registration failed", true);
+      setBusy(false);
+      try { ws.close(); } catch {}
       return;
     }
 
@@ -58,17 +92,15 @@ form.addEventListener("submit", async (e) => {
       sessionStorage.setItem("username", msg.username || username);
       sessionStorage.setItem("password", password);
       savePrivateKey(username, privateKey);
-      // If server ever sends token
       if (msg.token) sessionStorage.setItem("token", msg.token);
-
-      ws.close();
+      try { ws.close(); } catch {}
       window.location.href = "Chat_Interface.html";
     }
   });
 
   ws.addEventListener("error", () => {
-    alert(
-      "Error connecting to server."
-    );
+    clearTimeout(connectTimeout);
+    setStatus("Could not reach server. Is it online?", true);
+    setBusy(false);
   });
 });

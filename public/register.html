@@ -9,7 +9,6 @@
 
 <body>
 
-  <!-- Header -->
   <header class="top-header">
     Create a new account
   </header>
@@ -21,21 +20,16 @@
         <h2>Register</h2>
 
         <form id="registerForm">
-          <input type="text" id="username" placeholder="Username" required />
-          <input type="password" id="password" placeholder="Password" required />
-          <input type="password" id="confirmPassword" placeholder="Confirm Password" required />
+          <input type="text" id="username" placeholder="Username" autocomplete="username" required />
+          <input type="password" id="password" placeholder="Password" autocomplete="new-password" required />
+          <input type="password" id="confirmPassword" placeholder="Confirm Password" autocomplete="new-password" required />
 
-          <button type="submit">Create Account</button>
+          <button type="submit" id="registerBtn">Create Account</button>
         </form>
-        
-        <div
-          id="status"
-          role="status"
-          aria-live="polite"
-          style="margin-top:12px; min-height:20px; text-align:center;"
-        ></div>
 
-        <p style="margin-top:12px;">
+        <div id="status" role="status" aria-live="polite" class="status-msg"></div>
+
+        <p class="alt-link">
           Already have an account?
           <a href="login.html">Sign in</a>
         </p>
@@ -44,6 +38,7 @@
     </main>
   </div>
 
+  <script src="config.js"></script>
   <script type="module" src="register.js"></script>
 </body>
 </html>

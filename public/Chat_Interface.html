@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>SecureChat</title>
   <link rel="stylesheet" href="Chat_Interface.css">
 </head>
@@ -12,27 +13,37 @@
 
   <!-- Sidebar -->
   <aside class="sidebar">
-    <h2>Users</h2>
+    <div class="sidebar-header">
+      <h2>Users</h2>
+      <div id="meLabel" class="me-label"></div>
+    </div>
     <ul id="usersList"></ul>
   </aside>
 
-  <!-- Chat Interface -->
+  <!-- Chat -->
   <div class="chat-main">
     <header class="chat-header">
-      <span id="chatTitle">General</span>
+      <div class="chat-title-wrap">
+        <span id="chatTitle">General</span>
+        <span id="connStatus" class="conn-status conn-connecting" title="Connection status">connecting...</span>
+      </div>
       <button id="logoutBtn">Logout</button>
     </header>
 
     <main class="chat-messages" id="messages"></main>
 
-    <!-- Typing Indicator -->
-   <div id="typingIndicator" class="typing">Typing...</div>
+    <div id="typingIndicator" class="typing">Typing...</div>
 
     <footer class="chat-input">
-      <input type="text" id="messageInput" placeholder="Type a message..." />
+      <input type="text" id="messageInput" placeholder="Type a message..." autocomplete="off" />
+
+      <!-- Emoji button + popup -->
+      <button type="button" id="emojiBtn" title="Insert emoji">😊</button>
+      <div id="emojiPicker" class="emoji-picker" hidden></div>
+
       <button id="sendBtn">Send</button>
       <input type="file" id="fileInput" hidden />
-      <label for="fileInput" id="attachFileBtn" title="Attach File">📎</label>
+      <label for="fileInput" id="attachFileBtn" title="Attach file">📎</label>
       <span id="fileName" class="file-name">No file chosen</span>
       <button id="sendFileBtn">Send File</button>
     </footer>
@@ -41,6 +52,7 @@
 
 </div>
 
+<script src="config.js"></script>
 <script type="module" src="Chat_Interface.js"></script>
 </body>
 </html>

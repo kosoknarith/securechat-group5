@@ -11,34 +11,34 @@
 
   <!-- Header -->
   <header class="top-header">
-    Welcome to our chat server
+    Welcome to SecureChat
   </header>
 
   <div class="login-container">
-    
+
     <main class="login-main">
       <div class="login-card">
 
-        <!-- Login  -->
-        <h2>Login</h2>
+        <h2>Sign In</h2>
 
-        <form>
-          <input type="text" id="username" placeholder="Username" />
-          <input type="password" id="password" placeholder="Password" />
+        <form id="loginForm">
+          <input type="text" id="username" placeholder="Username" autocomplete="username" />
+          <input type="password" id="password" placeholder="Password" autocomplete="current-password" />
 
-          <button type="submit">Sign In</button>
+          <button type="submit" id="loginBtn">Sign In</button>
         </form>
 
-        <!-- Register button/link -->
-        <a href="register.html" style="display:block; text-align:center; margin-top:12px;">
-          Create Account
-        </a>
+        <div id="status" role="status" aria-live="polite" class="status-msg"></div>
+
+        <a href="register.html" class="alt-link">Create Account</a>
 
       </div>
     </main>
 
   </div>
 
+  <!-- Config must load before login.js -->
+  <script src="config.js"></script>
   <script src="login.js"></script>
 </body>
 </html>

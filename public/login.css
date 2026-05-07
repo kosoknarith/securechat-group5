@@ -11,17 +11,17 @@ html, body {
 
 /* Header */
 .top-header {
- position: fixed;
+  position: fixed;
   top: 0;
   width: 100%;
   background: #1E3A8A;
   color: white;
   text-align: center;
   padding: 15px;
-
   font-size: 28px;
-  font-weight: 800;   
+  font-weight: 800;
   letter-spacing: 1px;
+  z-index: 2;
 }
 
 /* Background */
@@ -30,21 +30,19 @@ body {
   justify-content: center;
   align-items: center;
   height: 100vh;
-
   background: linear-gradient(135deg, #4facfe, #8e44ad, #ff6ec4);
   background-size: 300% 300%;
   animation: gradientMove 10s ease infinite;
   overflow: hidden;
 }
 
-/* Gradient animation */
 @keyframes gradientMove {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
   100% { background-position: 0% 50%; }
 }
 
-/* Floating shapes */
+/* Decorative shapes */
 body::before,
 body::after {
   content: "";
@@ -56,17 +54,10 @@ body::after {
   transform: rotate(45deg);
 }
 
-body::before {
-  top: -100px;
-  left: -100px;
-}
+body::before { top: -100px; left: -100px; }
+body::after  { bottom: -100px; right: -100px; }
 
-body::after {
-  bottom: -100px;
-  right: -100px;
-}
-
-/* Container */
+/* Layout */
 .login-container {
   z-index: 1;
   width: 100%;
@@ -79,46 +70,86 @@ body::after {
   align-items: center;
 }
 
-/* Card */
 .login-card {
-  background: rgba(255,255,255,0.95);
+  background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(10px);
-  width: 320px;
-  padding: 25px;
+  width: 340px;
+  padding: 28px;
   border-radius: 12px;
   text-align: center;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
 }
 
-/* Card title */
 .login-card h2 {
-  margin-bottom: 15px;
+  margin-bottom: 18px;
+  color: #1E3A8A;
 }
 
-/* Inputs */
 .login-card input {
   width: 100%;
-  padding: 10px;
+  padding: 11px;
   margin: 8px 0;
-  border: none;
-  background: #eee;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #f9fafb;
+  font-size: 14px;
 }
 
-/* Button */
+.login-card input:focus {
+  outline: none;
+  border-color: #1E3A8A;
+  background: white;
+}
+
 .login-card button {
- width: 100%;
-  padding: 10px 15px;
+  width: 100%;
+  padding: 11px 15px;
+  margin-top: 6px;
   background: #F97316;
   color: white;
   border: none;
   cursor: pointer;
-
   font-weight: bold;
+  font-size: 15px;
   border-radius: 6px;
-
   transition: 0.2s ease;
 }
 
-.login-card button:hover {
- background: #ea580c;
-transform: scale(1.05);
+.login-card button:hover:not(:disabled) {
+  background: #ea580c;
+  transform: scale(1.03);
+}
+
+.login-card button:disabled {
+  background: #fdba74;
+  cursor: not-allowed;
+}
+
+/* Status messages  */
+.status-msg {
+  margin-top: 12px;
+  min-height: 20px;
+  font-size: 13px;
+  color: #1E3A8A;
+  text-align: center;
+  font-weight: 500;
+}
+
+/* Alt link below the form */
+.alt-link {
+  display: block;
+  text-align: center;
+  margin-top: 14px;
+  font-size: 14px;
+  color: #1E3A8A;
+}
+
+.alt-link a {
+  color: #F97316;
+  text-decoration: none;
+  font-weight: bold;
+}
+
+.alt-link a:hover {
+  text-decoration: underline;
 }
