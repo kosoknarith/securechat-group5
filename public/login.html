@@ -24,6 +24,10 @@
         <form id="loginForm">
           <input type="text" id="username" placeholder="Username" autocomplete="username" />
           <input type="password" id="password" placeholder="Password" autocomplete="current-password" />
+          <div
+            class="cf-turnstile"
+            data-sitekey="0x4AAAAAADLA3D84uqM0g9fO">
+          </div>
 
           <button type="submit" id="loginBtn">Sign In</button>
         </form>
@@ -38,6 +42,7 @@
   </div>
 
   <!-- Config must load before login.js -->
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
   <script src="config.js"></script>
   <script src="login.js"></script>
 </body>

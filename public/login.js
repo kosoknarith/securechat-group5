@@ -14,43 +14,96 @@ function setBusy(busy) {
   loginBtn.textContent = busy ? "Signing in..." : "Sign In";
 }
 
-form.addEventListener("submit", async (e) => {
+form.addEventListener("submit", (e) => {
   e.preventDefault();
 
   const username = document.getElementById("username").value.trim();
   const password = document.getElementById("password").value;
+
+  const turnstileToken = document.querySelector('[name="cf-turnstile-response"]')?.value;
 
   if (!username || !password) {
     setStatus("Please enter username and password", true);
     return;
   }
 
-  setStatus("Logging in...");
+  if (!turnstileToken) {
+    setStatus("Please complete the security check", true);
+    return;
+  }
+
+  setStatus("Connecting to server...");
   setBusy(true);
 
+  let ws;
+
   try {
-    const res = await fetch(`${window.SecureChatConfig.apiBase}/login.php`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password })
-    });
+    ws = new WebSocket(window.SecureChatConfig.wsUrl);
+  } catch (err) {
+    setStatus("Could not start connection. Check the server URL.", true);
+    setBusy(false);
+    return;
+  }
 
-    const data = await res.json();
+  const connectTimeout = setTimeout(() => {
+    setStatus("Server is taking too long to respond. Try again in a moment.", true);
+    setBusy(false);
+    try { ws.close(); } catch {}
+  }, 10000);
 
-    if (!res.ok || !data.success) {
-      setStatus(data.error || "Login failed", true);
+  ws.addEventListener("open", () => {
+    clearTimeout(connectTimeout);
+    setStatus("Authenticating...");
+
+    ws.send(JSON.stringify({
+      type: "auth",
+      username,
+      password,
+      turnstileToken,
+    }));
+  });
+
+  ws.addEventListener("message", (ev) => {
+    let msg;
+
+    try {
+      msg = JSON.parse(ev.data);
+    } catch {
+      setStatus("Bad server response", true);
       setBusy(false);
+      try { ws.close(); } catch {}
       return;
     }
 
-    sessionStorage.setItem("username", data.user.username);
-    sessionStorage.setItem("userId", data.user.id);
-    sessionStorage.setItem("password", password);
+    if (msg.type === "auth_fail" || msg.type === "error") {
+      setStatus(msg.message || "Login failed", true);
+      setBusy(false);
+      try { ws.close(); } catch {}
+      return;
+    }
 
-    window.location.href = "Chat_Interface.html";
-  } catch (err) {
-    console.error(err);
-    setStatus("Could not reach InfinityFree login API.", true);
+    if (msg.type === "auth_ok") {
+      sessionStorage.setItem("username", msg.username || username);
+      sessionStorage.setItem("password", password);
+
+      try { ws.close(); } catch {}
+
+      window.location.href = "Chat_Interface.html";
+    }
+  });
+
+  ws.addEventListener("error", () => {
+    clearTimeout(connectTimeout);
+    setStatus("Could not reach WebSocket server. Is it online?", true);
     setBusy(false);
-  }
+  });
+
+  ws.addEventListener("close", () => {
+    clearTimeout(connectTimeout);
+
+    if (loginBtn.disabled) {
+      setStatus("Connection closed before login completed", true);
+      setBusy(false);
+    }
+  });
 });
