@@ -302,15 +302,17 @@ wss.on("connection", (ws, req) => {
       const password = typeof msg.password === "string" ? msg.password : "";
       const publicKey = typeof msg.publicKey === "string" ? msg.publicKey.trim() : "";
 
-      // Verify CAPTCHA before login/register
-      const turnstileToken = typeof msg.turnstileToken === "string" ? msg.turnstileToken : "";
-      const turnstileOk = await verifyTurnstile(turnstileToken, ip);
+      // Verify CAPTCHA only when token is sent from login/register page
+      if (msg.turnstileToken !== undefined) {
+        const turnstileToken = typeof msg.turnstileToken === "string" ? msg.turnstileToken : "";
+        const turnstileOk = await verifyTurnstile(turnstileToken, ip);
 
-      if (!turnstileOk) {
-        return safeSend(ws, {
-          type: type === "register" ? "register_fail" : "auth_fail",
-          message: "Security check failed",
-        });
+        if (!turnstileOk) {
+          return safeSend(ws, {
+            type: type === "register" ? "register_fail" : "auth_fail",
+            message: "Security check failed",
+          });
+        }
       }
 
       // If bad username
