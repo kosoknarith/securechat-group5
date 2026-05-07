@@ -33,6 +33,17 @@ const lockedUsers = new Map();    // locked until timestamp
 
 /* Render HTTP server */
 const server = http.createServer((request, response) => {
+  // Allow InfinityFree frontend to call Render backend API
+  response.setHeader("Access-Control-Allow-Origin", "*");
+  response.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  response.setHeader("Access-Control-Allow-Headers", "Content-Type");
+
+  // Handle CORS preflight request
+  if (request.method === "OPTIONS") {
+    response.statusCode = 204;
+    return response.end();
+  }
+
   const parsedUrl = new URL(request.url, `http://${request.headers.host}`);
 
   // Public key lookup for encrypted DM
