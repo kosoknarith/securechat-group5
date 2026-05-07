@@ -52,7 +52,7 @@ function renderMessages() {
 
   for (const m of list) {
     if (m.kind === "system") {
-      addLine(m.message, "other");
+      addLine(m.message, "other", m.timestamp);
       continue;
     }
 
@@ -63,7 +63,8 @@ function renderMessages() {
       addFileLine(
         m.downloadUrl,
         m.fileName,
-        type
+        type,
+        m.timestamp,
       );
       continue;
     }
@@ -77,12 +78,12 @@ function renderMessages() {
       type = "other";
     }
 
-    addLine(text, type);
+    addLine(text, type, m.timestamp);
   }
 }
 
 // File message renderer
-function addFileLine(downloadUrl, fileName, type = "other") {
+function addFileLine(downloadUrl, fileName, type = "other", timestamp = Date.now()) {
   const div = document.createElement("div");
   div.classList.add("msg", type);
 
@@ -96,11 +97,7 @@ function addFileLine(downloadUrl, fileName, type = "other") {
   const time = document.createElement("div");
   time.classList.add("time");
 
-  const now = new Date();
-  time.textContent = now.toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  time.textContent = formatTime(timestamp);
 
   div.appendChild(link);
   div.appendChild(time);
@@ -161,8 +158,18 @@ function renderSidebar() {
   }
 }
 
+// Timestamp
+function formatTime(timestamp) {
+  const date = new Date(timestamp || Date.now());
+
+  return date.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 // Chat bubble
-function addLine(text, type = "other") {
+function addLine(text, type = "other", timestamp = Date.now()) {
   const div = document.createElement("div");
   div.classList.add("msg", type);
 
@@ -171,12 +178,7 @@ function addLine(text, type = "other") {
 
   const time = document.createElement("div");
   time.classList.add("time");
-
-  const now = new Date();
-  time.textContent = now.toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  time.textContent = formatTime(timestamp);
 
   div.appendChild(message);
   div.appendChild(time);
@@ -238,6 +240,7 @@ ws.onmessage = async (e) => {
     getConversation("general").push({
       kind: "system",
       message: "Logged in as " + username,
+      timestamp: Date.now(),
     });
     if (activeChat === "general") {
       renderMessages();
@@ -262,7 +265,12 @@ ws.onmessage = async (e) => {
 
   // Server system messages
   if (msg.type === "System") {
-    getConversation("general").push({ kind: "system", message: msg.message || "" });
+    getConversation("general").push({
+      kind: "system",
+      message: msg.message || "",
+      timestamp: msg.timestamp || Date.now(),
+    });
+
     if (activeChat === "general") {
       renderMessages();
     }
@@ -286,6 +294,7 @@ ws.onmessage = async (e) => {
         kind: "chat",
         from,
         message,
+        timestamp: msg.timestamp || Date.now(),
       });
 
       if (activeChat === "general") renderMessages();
@@ -325,6 +334,7 @@ ws.onmessage = async (e) => {
       from,
       to: msg.to || "",
       message,
+      timestamp: msg.timestamp || Date.now(),
     });
 
     if (activeChat === other) renderMessages();
@@ -361,6 +371,7 @@ ws.onmessage = async (e) => {
         to: msg.to || "",
         fileName: msg.fileName,
         downloadUrl,
+        timestamp: msg.timestamp || Date.now(),
       });
 
       if (activeChat === from) {
@@ -438,7 +449,8 @@ async function sendChat() {
         kind: "chat",
         from: username,
         to: activeChat,
-        message: text
+        message: text,
+        timestamp: Date.now(),
       });
       renderMessages();
     }
@@ -502,6 +514,7 @@ async function sendFile() {
       to: activeChat,
       fileName: file.name,
       downloadUrl: localUrl,
+      timestamp: Date.now(),
     });
 
     renderMessages();
