@@ -9,7 +9,6 @@ const SecureChatConfig = (() => {
   return {
     wsUrl: "wss://securechat-group5.onrender.com",
     apiBase: "https://securechatservice.42web.io/api",
-    renderApiBase: "https://securechat-group5.onrender.com",
   };
 })();
 
