@@ -189,8 +189,14 @@ function addLine(text, type = "other") {
 const WS_URL =
   location.hostname === "localhost" || location.hostname === "127.0.0.1"
     ? "ws://localhost:8080"
-    : "wss://YOUR-RENDER-APP-NAME.onrender.com";
+    : "wss://securechat-group5.onrender.com";
 
+  // Public API
+  const API_URL =
+  location.hostname === "localhost" || location.hostname === "127.0.0.1"
+    ? ""
+    : "https://securechat-group5.onrender.com";
+  
 const ws = new WebSocket(WS_URL);
 
 // Logout button
