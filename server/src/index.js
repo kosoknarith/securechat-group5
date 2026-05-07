@@ -3,9 +3,7 @@ const http = require("http");
 const fs = require("fs");
 const path = require("path");
 require("dotenv").config({ path: path.join(__dirname, "..", ".env") });
-const { validateCredentials, register } = require("./auth/authService");
 const { setUser, getUsername, clearUser, isAuthed, listOnlineUsers, getSocketsByUsername } = require("./auth/sessionStore");
-const { validateUsername, getPublicKey } = require("./auth/userStore");
 const publicDir = path.join(__dirname, "../../public");
 
 const PORT = process.env.PORT || 8080;
@@ -19,17 +17,9 @@ const HEARTBEAT_MS = 30_000; // Ping interval
 /*Rate limit settings*/
 const CHAT_WINDOW_MS = 10_000; // Chat window time
 const CHAT_MAX_MSGS = 10; // Chat max messages per window
-const AUTH_WINDOW_MS = 60_000; // Auth window time
-const AUTH_MAX_TRIES = 5; // Auth max attempts per window
-
-const AUTH_USER_WINDOW_MS = 15 * 60_000; // 15 minutes
-const AUTH_USER_MAX_TRIES = 8; // per-username attempts/window
-const LOCKOUT_MS = 5 * 60_000; // 5 minutes locked after too many failures
 
 const chatRate = new Map();
-const authRate = new Map();
-const authUserRate = new Map();   // based on the username being attacked
-const lockedUsers = new Map();    // locked until timestamp
+
 
 /* Render HTTP server */
 const server = http.createServer((request, response) => {
@@ -46,34 +36,6 @@ const server = http.createServer((request, response) => {
 
   const parsedUrl = new URL(request.url, `http://${request.headers.host}`);
 
-  // Public key lookup for encrypted DM
-  if (request.method === "GET" && parsedUrl.pathname === "/public-key") {
-    const targetUsername = parsedUrl.searchParams.get("username");
-
-    if (!targetUsername || !validateUsername(targetUsername)) {
-      response.statusCode = 400;
-      response.setHeader("Content-Type", "application/json");
-      return response.end(JSON.stringify({
-        message: "Invalid username"
-      }));
-    }
-
-    const publicKey = getPublicKey(targetUsername);
-
-    if (!publicKey) {
-      response.statusCode = 404;
-      response.setHeader("Content-Type", "application/json");
-      return response.end(JSON.stringify({
-        message: "Public key not found"
-      }));
-    }
-
-    response.statusCode = 200;
-    response.setHeader("Content-Type", "application/json");
-    return response.end(JSON.stringify({
-      publicKey
-    }));
-  }
 
   let filePath = path.join(
     publicDir,
@@ -122,6 +84,10 @@ function safeSend(ws, obj) {
   } catch {}
 }
 
+/*Validate username format*/
+function validateUsername(username) {
+  return typeof username === "string" && /^[A-Za-z0-9_]{3,32}$/.test(username);
+}
 /*Send JSON to all connected clients*/
 function broadcast(obj) {
   const payload = JSON.stringify(obj);
@@ -247,92 +213,36 @@ wss.on("connection", (ws, req) => {
     }
 
     // If unknown type
-    if (type !== "auth" && type !== "register" && type !== "chat" && type !== "file") {
+    if (type !== "auth" && type !== "chat" && type !== "file") {
       return safeSend(ws, { type: "error", message: "Unknown message type" });
     }
 
     /*AUTH + REGISTER*/
-    if (type === "auth" || type === "register") {
-      const authKey = `ip:${ip}`;
-      const authRL = checkRateLimit(authRate, authKey, AUTH_WINDOW_MS, AUTH_MAX_TRIES,);
+    if (type === "auth") {
+      const username = typeof msg.username === "string" ? msg.username.trim() : "";
 
-      // If too many auth tries
-      if (authRL.limited) {
+      if (!username || username.length > 32 || !validateUsername(username)) {
         return safeSend(ws, {
           type: "auth_fail",
-          message: `Too many attempts. Try again in ${Math.ceil(authRL.retryInMs / 1000)}s.`,
+          message: "Invalid username"
         });
       }
 
-      const username = typeof msg.username === "string" ? msg.username.trim() : "";
-      const password = typeof msg.password === "string" ? msg.password : "";
-      const publicKey = typeof msg.publicKey === "string" ? msg.publicKey.trim() : "";
-
-
-      // If bad username
-      if (!username || username.length > 32) {
-        return safeSend(ws, {type: "auth_fail",
-          message: "Authentication failed",
-        });
-      }
-
-      // If bad password
-      if (!password || password.length > 128) {
-        return safeSend(ws, { type: "auth_fail", message: "Authentication failed" });
-      }
-
-      // If already authed
       if (isAuthed(ws)) {
         return safeSend(ws, {
           type: "error",
-          message: "Already authenticated",
-        });
-      }
-
-      // REGISTER
-      if (type === "register") {
-        if (!publicKey) {
-          return safeSend(ws, {
-            type: "register_fail",
-            message: "Missing public key",
-          });
-        }
-
-        const result = await register(username, password, publicKey);
-        if (!result?.ok) {
-          return safeSend(ws, {
-            type: "register_fail",
-            message: result?.message || "Registration failed",
-          });
-        }
-
-        setUser(ws, username);
-        if (!ws._loggedIn) {
-          ws._loggedIn = true;
-          console.log("Client connected");
-        }
-        safeSend(ws, {
-          type: "auth_ok",
-          message: `Welcome ${username}`,
-          username,
-          registered: true,
-        });
-        broadcast({ type: "System", message: `${username} joined` });
-        broadcastUserList();
-        return;
-      }
-
-      // LOGIN
-      const ok = await validateCredentials(username, password);
-
-      // If login fails
-      if (!ok) {
-        return safeSend(ws, {type: "auth_fail",message: "Authentication failed",
+          message: "Already authenticated"
         });
       }
 
       setUser(ws, username);
-      safeSend(ws, { type: "auth_ok", message: `Welcome ${username}`,username });
+
+      safeSend(ws, {
+        type: "auth_ok",
+        message: `Welcome ${username}`,
+        username
+      });
+
       broadcast({ type: "System", message: `${username} joined` });
       broadcastUserList();
       return;

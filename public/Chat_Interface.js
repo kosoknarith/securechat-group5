@@ -219,7 +219,7 @@ function renderMessages() {
 // ---- Public key fetch (uses configured backend) ----
 
 async function fetchPublicKey(targetUsername) {
-  const url = `${window.SecureChatConfig.apiBase}/public-key?username=${encodeURIComponent(targetUsername)}`;
+  const url = `${window.SecureChatConfig.apiBase}/publickey?username=${encodeURIComponent(targetUsername)}`;
   const res = await fetch(url);
   const data = await res.json();
   if (!res.ok || !data.publicKey) {
@@ -247,7 +247,7 @@ function connect() {
       hasEverConnected = true;
     }
     setConnStatus("online", "online");
-    ws.send(JSON.stringify({ type: "auth", username, password }));
+    ws.send(JSON.stringify({ type: "auth", username }));
 
     if (chatTitleEl) chatTitleEl.textContent = chatTitleFor(activeChat);
     renderSidebar();
@@ -435,6 +435,26 @@ async function handleMessage(e) {
   addLine(msg.type + ": " + (msg.message || ""), "other");
 }
 
+// ---- Message saving
+
+async function saveMessage(senderUsername, receiverUsername, encryptedMessage) {
+  try {
+    await fetch(`${window.SecureChatConfig.apiBase}/save_message.php`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        senderUsername,
+        receiverUsername,
+        encryptedMessage,
+      }),
+    });
+  } catch (err) {
+    console.error("Failed to save message:", err);
+  }
+}
+
 // ---- Send actions ----
 
 async function sendChat() {
@@ -446,7 +466,15 @@ async function sendChat() {
   }
 
   if (activeChat === "general") {
-    ws.send(JSON.stringify({ type: "chat", scope: "general", message: text }));
+    ws.send(
+      JSON.stringify({
+        type: "chat",
+        scope: "general",
+        message: text,
+      }),
+    );
+
+    await saveMessage(username, "general", text);
   } else {
     let recipientPublicKey;
     try {
@@ -458,12 +486,17 @@ async function sendChat() {
     }
 
     const encryptedPayload = await encryptMessage(text, recipientPublicKey);
-    ws.send(JSON.stringify({
-      type: "chat",
-      scope: "dm",
-      to: activeChat,
-      message: encryptedPayload,
-    }));
+
+    ws.send(
+      JSON.stringify({
+        type: "chat",
+        scope: "dm",
+        to: activeChat,
+        message: encryptedPayload,
+      }),
+    );
+
+    await saveMessage(username, activeChat, JSON.stringify(encryptedPayload));
 
     pushAndSave(activeChat, {
       kind: "chat",
@@ -471,6 +504,7 @@ async function sendChat() {
       to: activeChat,
       message: text,
     });
+
     renderMessages();
   }
 
