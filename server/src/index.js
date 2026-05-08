@@ -3,9 +3,7 @@ const http = require("http");
 const fs = require("fs");
 const path = require("path");
 require("dotenv").config({ path: path.join(__dirname, "..", ".env") });
-const { validateCredentials, register } = require("./auth/authService");
 const { setUser, getUsername, clearUser, isAuthed, listOnlineUsers, getSocketsByUsername } = require("./auth/sessionStore");
-const { validateUsername, getPublicKey } = require("./auth/userStore");
 const publicDir = path.join(__dirname, "../../public");
 
 const PORT = process.env.PORT || 8080;
@@ -19,18 +17,8 @@ const HEARTBEAT_MS = 30_000; // Ping interval
 /*Rate limit settings*/
 const CHAT_WINDOW_MS = 10_000; // Chat window time
 const CHAT_MAX_MSGS = 10; // Chat max messages per window
-const AUTH_WINDOW_MS = 60_000;
-const AUTH_MAX_TRIES = 5;
-
-const AUTH_USER_WINDOW_MS = 15 * 60_000;
-const AUTH_USER_MAX_TRIES = 8;
-const LOCKOUT_MS = 5 * 60_000;
 
 const chatRate = new Map();
-const authRate = new Map();
-const authUserRate = new Map();
-const lockedUsers = new Map();
-
 
 /* Render HTTP server */
 const server = http.createServer((request, response) => {
@@ -46,34 +34,6 @@ const server = http.createServer((request, response) => {
   }
 
   const parsedUrl = new URL(request.url, `http://${request.headers.host}`);
-  // Public key lookup for encrypted DM
-if (request.method === "GET" && parsedUrl.pathname === "/public-key") {
-  const targetUsername = parsedUrl.searchParams.get("username");
-
-  if (!targetUsername || !validateUsername(targetUsername)) {
-    response.statusCode = 400;
-    response.setHeader("Content-Type", "application/json");
-    return response.end(JSON.stringify({
-      message: "Invalid username"
-    }));
-  }
-
-  const publicKey = getPublicKey(targetUsername);
-
-  if (!publicKey) {
-    response.statusCode = 404;
-    response.setHeader("Content-Type", "application/json");
-    return response.end(JSON.stringify({
-      message: "Public key not found"
-    }));
-  }
-
-  response.statusCode = 200;
-  response.setHeader("Content-Type", "application/json");
-  return response.end(JSON.stringify({
-    publicKey
-  }));
-}
 
 
   let filePath = path.join(
@@ -122,39 +82,11 @@ function safeSend(ws, obj) {
     ws.send(JSON.stringify(obj));
   } catch {}
 }
-/*Verify Cloudflare Turnstile token*/
-async function verifyTurnstile(token, ip) {
-  if (!token) {
-    return false;
-  }
 
-  const secret = process.env.TURNSTILE_SECRET_KEY;
-  if (!secret) {
-    console.error("Missing TURNSTILE_SECRET_KEY");
-    return false;
-  }
-
-  const formData = new URLSearchParams();
-  formData.append("secret", secret);
-  formData.append("response", token);
-
-  if (ip && ip !== "unknown") {
-    formData.append("remoteip", ip.replace(/^::ffff:/, ""));
-  }
-
-  try {
-    const res = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
-      method: "POST",
-      body: formData,
-    });
-
-    const data = await res.json();
-    return data.success === true;
-  } catch (err) {
-    console.error("Turnstile verification failed:", err);
-    return false;
-  }
+function validateUsername(username) {
+  return typeof username === "string" && /^[A-Za-z0-9_]{3,32}$/.test(username);
 }
+
 
 /*Send JSON to all connected clients*/
 function broadcast(obj) {
@@ -221,18 +153,6 @@ setInterval(() => {
       chatRate.delete(key);
     }
   }
-
-  for (const [key, entry] of authRate.entries()) {
-    if (now - entry.windowStart > AUTH_WINDOW_MS * 3) authRate.delete(key);
-  }
-
-  for (const [key, entry] of authUserRate.entries()) {
-    if (now - entry.windowStart > AUTH_USER_WINDOW_MS * 3) authUserRate.delete(key);
-  }
-
-  for (const [u, until] of lockedUsers.entries()) {
-    if (now >= until) lockedUsers.delete(u);
-  }
 }, 60_000);
 
 /*Handle new WebSocket connection*/
@@ -281,122 +201,56 @@ wss.on("connection", (ws, req) => {
     }
 
     // If unknown type
-    if (type !== "auth" && type !== "register" && type !== "chat" && type !== "file") {
+    if (type !== "auth" && type !== "chat" && type !== "file") {
       return safeSend(ws, { type: "error", message: "Unknown message type" });
     }
+    if (type === "auth") {
+      const token = typeof msg.token === "string" ? msg.token : "";
 
-    /*AUTH + REGISTER*/
-    if (type === "auth" || type === "register") {
-      const authKey = `ip:${ip}`;
-      const authRL = checkRateLimit(authRate, authKey, AUTH_WINDOW_MS, AUTH_MAX_TRIES);
-
-      // If too many auth tries
-      if (authRL.limited) {
-        return safeSend(ws, {
-          type: type === "register" ? "register_fail" : "auth_fail",
-          message: `Too many attempts. Try again in ${Math.ceil(authRL.retryInMs / 1000)}s.`,
-        });
+      if (!token) {
+        return safeSend(ws, { type: "auth_fail", message: "Missing token" });
       }
 
-      const username = typeof msg.username === "string" ? msg.username.trim() : "";
-      const password = typeof msg.password === "string" ? msg.password : "";
-      const publicKey = typeof msg.publicKey === "string" ? msg.publicKey.trim() : "";
+      try {
+        const res = await fetch(
+          `https://securechatservice.42web.io/api/validate_token.php`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ token }),
+          },
+        );
 
-      // Verify CAPTCHA only when token is sent from login/register page
-      if (msg.turnstileToken !== undefined) {
-        const turnstileToken = typeof msg.turnstileToken === "string" ? msg.turnstileToken : "";
-        const turnstileOk = await verifyTurnstile(turnstileToken, ip);
+        const data = await res.json();
 
-        if (!turnstileOk) {
-          return safeSend(ws, {
-            type: type === "register" ? "register_fail" : "auth_fail",
-            message: "Security check failed",
-          });
-        }
-      }
-
-      // If bad username
-      if (!username || username.length > 32 || !validateUsername(username)) {
-        return safeSend(ws, {
-          type: type === "register" ? "register_fail" : "auth_fail",
-          message: "Authentication failed",
-        });
-      }
-
-      // If bad password
-      if (!password || password.length > 128) {
-        return safeSend(ws, {
-          type: type === "register" ? "register_fail" : "auth_fail",
-          message: "Authentication failed",
-        });
-      }
-
-      // If already authed
-      if (isAuthed(ws)) {
-        return safeSend(ws, {
-          type: "error",
-          message: "Already authenticated",
-        });
-      }
-
-      // REGISTER
-      if (type === "register") {
-        if (!publicKey) {
-          return safeSend(ws, {
-            type: "register_fail",
-            message: "Missing public key",
-          });
+        if (!res.ok || !data.valid) {
+          return safeSend(ws, { type: "auth_fail", message: "Invalid token" });
         }
 
-        const result = await register(username, password, publicKey);
-
-        if (!result?.ok) {
-          return safeSend(ws, {
-            type: "register_fail",
-            message: result?.message || "Registration failed",
-          });
-        }
+        const username = data.username;
 
         setUser(ws, username);
         ws._loggedIn = true;
 
         safeSend(ws, {
           type: "auth_ok",
-          message: `Welcome ${username}`,
           username,
-          registered: true,
         });
 
-        broadcast({ type: "System", message: `${username} joined`, timestamp: Date.now() });
+        broadcast({
+          type: "System",
+          message: `${username} joined`,
+          timestamp: Date.now(),
+        });
+
         broadcastUserList();
-        return;
+      } catch (err) {
+        console.error("Auth error:", err);
+        return safeSend(ws, { type: "auth_fail", message: "Auth server error" });
       }
 
-      // LOGIN
-      const ok = await validateCredentials(username, password);
-
-      // If login fails
-      if (!ok) {
-        return safeSend(ws, {
-          type: "auth_fail",
-          message: "Authentication failed",
-        });
-      }
-
-      setUser(ws, username);
-      ws._loggedIn = true;
-
-      safeSend(ws, {
-        type: "auth_ok",
-        message: `Welcome ${username}`,
-        username,
-      });
-
-      broadcast({ type: "System", message: `${username} joined`, timestamp: Date.now() });
-      broadcastUserList();
       return;
     }
-
     /*AUTH REQUIRED*/
     // If not logged in
     if (!isAuthed(ws)) {

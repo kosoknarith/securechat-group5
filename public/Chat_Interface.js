@@ -219,11 +219,11 @@ function renderMessages() {
 // ---- Public key fetch (uses configured backend) ----
 
 async function fetchPublicKey(targetUsername) {
-  const url = `${window.SecureChatConfig.apiBase}/public-key?username=${encodeURIComponent(targetUsername)}`;
+  const url = `${window.SecureChatConfig.apiBase}/publickey.php?username=${encodeURIComponent(targetUsername)}`;
   const res = await fetch(url);
   const data = await res.json();
   if (!res.ok || !data.publicKey) {
-    throw new Error(data.message || "Public key not found");
+    throw new Error(data.error || "Public key not found");
   }
   return data.publicKey;
 }
@@ -247,7 +247,7 @@ function connect() {
       hasEverConnected = true;
     }
     setConnStatus("online", "online");
-    ws.send(JSON.stringify({ type: "auth", username, password }));
+    ws.send(JSON.stringify({ type: "auth", username }));
 
     if (chatTitleEl) chatTitleEl.textContent = chatTitleFor(activeChat);
     renderSidebar();
@@ -474,7 +474,8 @@ async function sendChat() {
       }),
     );
 
-  
+    await saveMessage(username, "general", text);
+
   } else {
     let recipientPublicKey;
     try {
@@ -496,7 +497,7 @@ async function sendChat() {
       }),
     );
 
-    
+    await saveMessage(username, activeChat, JSON.stringify(encryptedPayload));
 
     pushAndSave(activeChat, {
       kind: "chat",

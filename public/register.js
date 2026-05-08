@@ -22,6 +22,9 @@ form.addEventListener("submit", async (e) => {
   const username = document.getElementById("username").value.trim();
   const password = document.getElementById("password").value;
   const confirm = document.getElementById("confirmPassword").value;
+  const turnstileToken = document.querySelector(
+    '[name="cf-turnstile-response"]',
+  )?.value;
 
   if (!username || !password) {
     setStatus("Please enter username and password", true);
@@ -32,87 +35,71 @@ form.addEventListener("submit", async (e) => {
     setStatus("Passwords do not match", true);
     return;
   }
-    const turnstileToken = document.querySelector('[name="cf-turnstile-response"]')?.value;
 
-    if (!turnstileToken) {
-      setStatus("Please complete the security check.", true);
-      return;
-    }
+  if (!turnstileToken) {
+    setStatus("Please complete the security check.", true);
+    return;
+  }
 
   setBusy(true, "Generating keys...");
-  setStatus("Generating encryption keys (this can take a few seconds)...");
+  setStatus("Generating encryption keys...");
 
   let publicKey, privateKey;
+
   try {
     const keys = await generateKeyPair();
     publicKey = keys.publicKey;
     privateKey = keys.privateKey;
   } catch (err) {
-    setStatus("Failed to generate keys. Your browser may not support WebCrypto.", true);
+    console.error(err);
+    setStatus("Failed to generate encryption keys.", true);
     setBusy(false);
     return;
   }
 
-  setStatus("Connecting to server...");
   setBusy(true, "Registering...");
+  setStatus("Creating account...");
 
-  let ws;
   try {
-    ws = new WebSocket(window.SecureChatConfig.wsUrl);
-  } catch (err) {
-    setStatus("Could not start connection.", true);
-    setBusy(false);
-    return;
-  }
+    const url = `${window.SecureChatConfig.apiBase}/register.php`;
+    console.log("Register URL:", url);
 
-  const connectTimeout = setTimeout(() => {
-    setStatus("Server is taking too long to respond.", true);
-    setBusy(false);
-    try { ws.close(); } catch {}
-  }, 10000);
+    const res = await fetch(url, {
+      method: "POST",
+      mode: "cors",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        username,
+        password,
+        publicKey,
+        turnstileToken,
+      }),
+    });
 
-  ws.addEventListener("open", () => {
-    clearTimeout(connectTimeout);
-    ws.send(JSON.stringify({
-      type: "register",
-      username,
-      password,
-      publicKey,
-      turnstileToken
-    }));
-  });
+    const raw = await res.text();
+    console.log("Register status:", res.status);
+    console.log("Register raw response:", raw);
 
-  ws.addEventListener("message", (ev) => {
-    let msg;
+    let data;
     try {
-      msg = JSON.parse(ev.data);
+      data = JSON.parse(raw);
     } catch {
-      setStatus("Bad server response", true);
+      throw new Error("Register API did not return JSON: " + raw);
+    }
+
+    if (!res.ok || !data.success) {
+      setStatus(data.error || "Registration failed", true);
       setBusy(false);
-      try { ws.close(); } catch {}
       return;
     }
 
-    if (msg.type === "register_fail" || msg.type === "auth_fail" || msg.type === "error") {
-      setStatus(msg.message || "Registration failed", true);
-      setBusy(false);
-      try { ws.close(); } catch {}
-      return;
-    }
-
-    if (msg.type === "auth_ok" || msg.type === "register_ok") {
-      sessionStorage.setItem("username", msg.username || username);
-      sessionStorage.setItem("password", password);
-      savePrivateKey(username, privateKey);
-      if (msg.token) sessionStorage.setItem("token", msg.token);
-      try { ws.close(); } catch {}
-      window.location.href = "Chat_Interface.html";
-    }
-  });
-
-  ws.addEventListener("error", () => {
-    clearTimeout(connectTimeout);
-    setStatus("Could not reach server. Is it online?", true);
+    savePrivateKey(username, privateKey);
+    window.location.href = "login.html";
+  } catch (err) {
+    console.error(err);
+    setStatus("Could not reach InfinityFree register API.", true);
     setBusy(false);
-  });
+  }
 });
