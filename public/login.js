@@ -37,9 +37,12 @@ form.addEventListener("submit", async (e) => {
   setBusy(true);
 
   try {
-    const res = await fetch(`${window.SecureChatConfig.apiBase}/login.php`, {
+    const res = await fetch(`${window.SecureChatConfig.apiBase}/login`, {
       method: "POST",
-      body: new URLSearchParams({
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
         username,
         password,
         turnstileToken,
@@ -61,7 +64,7 @@ form.addEventListener("submit", async (e) => {
     window.location.href = "Chat_Interface.html";
   } catch (err) {
     console.error(err);
-    setStatus("Could not reach InfinityFree login API.", true);
+    setStatus("Could not reach API.", true);
     setBusy(false);
   }
 });

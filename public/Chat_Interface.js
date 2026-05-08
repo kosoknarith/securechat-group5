@@ -214,7 +214,7 @@ function renderMessages() {
 // ---- Public key fetch (uses configured backend) ----
 
 async function fetchPublicKey(targetUsername) {
-  const url = `${window.SecureChatConfig.apiBase}/publickey.php?username=${encodeURIComponent(targetUsername)}`;
+  const url = `${window.SecureChatConfig.apiBase}/publickey?username=${encodeURIComponent(targetUsername)}`;
   const res = await fetch(url);
   const data = await res.json();
   if (!res.ok || !data.publicKey) {
@@ -435,7 +435,7 @@ async function handleMessage(e) {
 
 async function saveMessage(senderUsername, receiverUsername, encryptedMessage) {
   try {
-    await fetch(`${window.SecureChatConfig.apiBase}/save_message.php`, {
+    await fetch(`${window.SecureChatConfig.apiBase}/save_message`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

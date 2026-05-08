@@ -8,6 +8,11 @@ const publicDir = path.join(__dirname, "../../public");
 
 const PORT = process.env.PORT || 8080;
 
+/* database + auth */
+const pool = require("./db");
+const bcrypt = require("bcryptjs");
+const crypto = require("crypto");
+
 /*Security limits*/
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 const MAX_FRAME_BYTES = 8 * 1024 * 1024; // Max bytes per incoming message
@@ -20,6 +25,293 @@ const CHAT_MAX_MSGS = 10; // Chat max messages per window
 
 const chatRate = new Map();
 
+async function verifyTurnstile(token) {
+
+  if (!token || !process.env.TURNSTILE_SECRET) {
+    return false;
+  }
+
+  try {
+    const res = await fetch(
+      "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({
+          secret: process.env.TURNSTILE_SECRET,
+          response: token,
+        }),
+      },
+    );
+
+    const data = await res.json();
+
+    return data.success === true;
+  } catch (err) {
+    return false;
+  }
+}
+
+async function handleLogin(request, response) {
+  let body = "";
+  request.on("data", (chunk) => (body += chunk));
+
+  request.on("end", async () => {
+    try {
+      const data = JSON.parse(body);
+
+      const username = (data.username ?? "").trim();
+      const password = data.password ?? "";
+      const turnstileToken = data.turnstileToken ?? "";
+
+      if (!username || !password) {
+        response.statusCode = 400;
+        return response.end(
+          JSON.stringify({ error: "Username and password required" }),
+        );
+      }
+
+      // Verify turnstile token
+      if (!(await verifyTurnstile(turnstileToken))) {
+        response.statusCode = 403;
+        return response.end(JSON.stringify({ error: "Security check failed" }));
+      }
+
+      // Rate limit of 5 login attempts per minute per username
+      const allowed = await checkDbRateLimit(
+        "login",
+        `login:${username.toLowerCase()}`,
+        5,
+        60,
+      );
+
+      if (!allowed) {
+        response.statusCode = 429;
+        return response.end(
+          JSON.stringify({ error: "Too many attempts. Try again later." }),
+        );
+      }
+
+      // Grabs user from DB
+      const result = await pool.query(
+        "SELECT id, username, password_hash, public_key FROM users WHERE username = $1",
+        [username],
+      );
+
+      const rows = result.rows;
+
+      // Checks if user exists and password matches
+      if (!user || !(await bcrypt.compare(password, user.password_hash))) {
+        response.statusCode = 401;
+        return response.end(
+          JSON.stringify({ error: "Invalid username or password" }),
+        );
+      }
+
+      // Generate session token
+      const token = crypto.randomBytes(32).toString("hex");
+
+      // Session expires in 24 hours
+      const expires = new Date(Date.now() + 86400000);
+      await pool.query(
+        "INSERT INTO sessions (user_id, token, expires_at) VALUES ($1, $2, $3)",
+        [user.id, token, expires],
+      );
+
+      response.end(
+        JSON.stringify({
+          success: true,
+          token,
+          user: {
+            id: user.id,
+            username: user.username,
+            publicKey: user.public_key,
+          },
+        }),
+      );
+    } catch (err) {
+      console.error("LOGIN ERROR:", err);
+      response.statusCode = 500;
+      response.end(
+        JSON.stringify({
+          error: "Server error",
+          details: err.message,
+        }),
+      );
+    }
+  });
+}
+
+// Basically the same as handleLogin but with different rate limit and DB queries
+async function handleRegister(request, response) {
+  let body = "";
+  request.on("data", (chunk) => (body += chunk));
+  request.on("end", async () => {
+    try {
+      const data = JSON.parse(body);
+      const username = (data.username ?? "").trim();
+      const password = data.password ?? "";
+      const publicKey = data.publicKey ?? "";
+      const turnstileToken = data.turnstileToken ?? "";
+
+      if (!username || !password) {
+        response.statusCode = 400;
+        return response.end(
+          JSON.stringify({ error: "Username and password required" }),
+        );
+      }
+
+      if (!(await verifyTurnstile(turnstileToken))) {
+        response.statusCode = 403;
+        return response.end(JSON.stringify({ error: "Security check failed" }));
+      }
+
+      const allowed = await checkDbRateLimit(
+        "register",
+        `register:${username.toLowerCase()}`,
+        3,
+        300,
+      );
+      if (!allowed) {
+        response.statusCode = 429;
+        return response.end(
+          JSON.stringify({ error: "Too many attempts. Try again later." }),
+        );
+      }
+
+      const passwordHash = await bcrypt.hash(password, 10);
+
+      try {
+        await pool.query(
+          "INSERT INTO users (username, password_hash, public_key) VALUES ($1, $2, $3)",
+          [username, passwordHash, publicKey],
+        );
+        response.end(JSON.stringify({ success: true }));
+      } catch (err) {
+        console.error("REGISTER INSERT ERROR:", err);
+
+        response.statusCode = 400;
+        response.end(
+          JSON.stringify({
+            error: "Registration failed",
+            details: err.message,
+            code: err.code,
+          }),
+        );
+      }
+    } catch {
+      response.statusCode = 500;
+      response.end(JSON.stringify({ error: "Server error" }));
+    }
+  });
+}
+
+async function checkDbRateLimit(
+  action,
+  identifier,
+  maxAttempts,
+  windowSeconds,
+) {
+
+  // Deletes old entries
+  await pool.query(
+    "DELETE FROM rate_limits WHERE created_at < (NOW() - ($1 * INTERVAL '1 second'))",
+    [windowSeconds],
+  );
+
+  // Count recent tries
+  const result = await pool.query(
+    `SELECT COUNT(*) AS attempts FROM rate_limits
+     WHERE action = $1 AND identifier = $2
+     AND created_at >= (NOW() - ($3 * INTERVAL '1 second'))`,
+    [action, identifier, windowSeconds],
+  );
+
+  // if too many attempts, block
+  if (parseInt(result.rows[0].attempts, 10) >= maxAttempts) return false;
+
+  await pool.query(
+    "INSERT INTO rate_limits (action, identifier) VALUES ($1, $2)",
+    [action, identifier],
+  );
+  return true;
+}
+
+// Validate session token
+async function handleValidateToken(request, response) {
+  let body = "";
+  request.on("data", (chunk) => (body += chunk));
+  request.on("end", async () => {
+    try {
+      const { token } = JSON.parse(body);
+      if (!token) {
+        response.statusCode = 400;
+        return response.end(JSON.stringify({ valid: false }));
+      }
+      // Checks session validity
+      const result = await pool.query(
+        `SELECT u.username FROM sessions s
+        JOIN users u ON u.id = s.user_id
+        WHERE s.token = $1 AND s.expires_at > NOW()`,
+        [token],
+      );
+
+      const rows = result.rows;
+      if (!rows.length) {
+        response.statusCode = 401;
+        return response.end(JSON.stringify({ valid: false }));
+      }
+      response.end(JSON.stringify({ valid: true, username: rows[0].username }));
+    } catch {
+      response.statusCode = 500;
+      response.end(JSON.stringify({ valid: false }));
+    }
+  });
+}
+
+// Get public key for a username
+async function handlePublicKey(request, response, parsedUrl) {
+  const username = (parsedUrl.searchParams.get("username") ?? "").trim();
+
+  if (!username) {
+    response.statusCode = 400;
+    return response.end(JSON.stringify({ error: "Username required" }));
+  }
+
+  try {
+    // Grabs user's public key from DB
+    const result = await pool.query(
+      "SELECT public_key FROM users WHERE username = $1",
+      [username],
+    );
+
+    const user = result.rows[0];
+
+    if (!user?.public_key) {
+      response.statusCode = 404;
+      return response.end(JSON.stringify({ error: "Public key not found" }));
+    }
+
+    response.end(
+      JSON.stringify({
+        success: true,
+        publicKey: user.public_key,
+      }),
+    );
+  } catch (err) {
+    console.error("PUBLIC KEY ERROR:", err);
+
+    response.statusCode = 500;
+    response.end(
+      JSON.stringify({
+        error: "Server error",
+        details: err.message,
+      }),
+    );
+  }
+}
 /* Render HTTP server */
 const server = http.createServer((request, response) => {
   // Allow InfinityFree frontend to call Render backend API
@@ -212,22 +504,20 @@ wss.on("connection", (ws, req) => {
       }
 
       try {
-        const res = await fetch(
-          `https://securechatservice.42web.io/api/validate_token.php`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ token }),
-          },
+        const result = await pool.query(
+          `SELECT u.username FROM sessions s
+          JOIN users u ON u.id = s.user_id
+          WHERE s.token = $1 AND s.expires_at > NOW()`,
+          [token],
         );
 
-        const data = await res.json();
+        const rows = result.rows;
 
-        if (!res.ok || !data.valid) {
+        if (!rows.length) {
           return safeSend(ws, { type: "auth_fail", message: "Invalid token" });
         }
 
-        const username = data.username;
+        const username = rows[0].username;
 
         setUser(ws, username);
         ws._loggedIn = true;

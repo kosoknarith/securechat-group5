@@ -16,6 +16,12 @@ function setBusy(busy, label = "Creating account...") {
   registerBtn.textContent = busy ? label : "Create Account";
 }
 
+function resetTurnstile() {
+  if (window.turnstile) {
+    window.turnstile.reset();
+  }
+}
+
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
 
@@ -61,7 +67,7 @@ form.addEventListener("submit", async (e) => {
   setStatus("Creating account...");
 
   try {
-    const url = `${window.SecureChatConfig.apiBase}/register.php`;
+    const url = `${window.SecureChatConfig.apiBase}/register`;
     console.log("Register URL:", url);
 
     const res = await fetch(url, {
@@ -90,6 +96,7 @@ form.addEventListener("submit", async (e) => {
     }
 
     if (!res.ok || !data.success) {
+      resetTurnstile();
       setStatus(data.error || "Registration failed", true);
       setBusy(false);
       return;
@@ -99,7 +106,7 @@ form.addEventListener("submit", async (e) => {
     window.location.href = "login.html";
   } catch (err) {
     console.error(err);
-    setStatus("Could not reach InfinityFree register API.", true);
+    setStatus("Could not reach register API.", true);
     setBusy(false);
   }
 });
