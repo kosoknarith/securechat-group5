@@ -34,7 +34,7 @@ if (meLabelEl) {
 
 let authed = false;
 let onlineUsers = [];
-let activeChat = "general";
+let activeChat = "";
 let typingTimeout;
 let seenFirstUserList = false;  // resets on reconnect
 
@@ -105,7 +105,7 @@ function setConnStatus(state, label) {
 // ---- Rendering ----
 
 function chatTitleFor(key) {
-  return key === "general" ? "General" : key;
+  return key || "Select a user";
 }
 
 function setActiveChat(key) {
@@ -120,13 +120,6 @@ function renderSidebar() {
   if (!usersListEl) return;
   usersListEl.innerHTML = "";
 
-  const generalLi = document.createElement("li");
-  generalLi.dataset.chat = "general";
-  generalLi.classList.toggle("active", activeChat === "general");
-  generalLi.innerHTML = `<span class="status online"></span> General`;
-  generalLi.addEventListener("click", () => setActiveChat("general"));
-  usersListEl.appendChild(generalLi);
-
   const others = onlineUsers.filter((u) => u && u !== username);
 
   for (const u of others) {
@@ -138,8 +131,10 @@ function renderSidebar() {
     usersListEl.appendChild(li);
   }
 
-  if (activeChat !== "general" && !others.includes(activeChat)) {
-    setActiveChat("general");
+  if (activeChat && !others.includes(activeChat)) {
+    activeChat = "";
+    if (chatTitleEl) chatTitleEl.textContent = "Select a user";
+    renderMessages();
   }
 }
 
@@ -457,36 +452,30 @@ async function saveMessage(senderUsername, receiverUsername, encryptedMessage) {
 }
 
 // ---- Send actions ----
-
 async function sendChat() {
   const text = inputEl.value.trim();
   if (!text) return;
+
   if (!authed) {
     addLine("Not connected. Please wait...", "other");
     return;
   }
 
-  if (activeChat === "general") {
-    ws.send(
-      JSON.stringify({
-        type: "chat",
-        scope: "general",
-        message: text,
-      }),
-    );
+  if (!activeChat) {
+    addLine("Select a user first.", "other");
+    return;
+  }
 
-    await saveMessage(username, "general", text);
+  let recipientPublicKey;
+  try {
+    recipientPublicKey = await fetchPublicKey(activeChat);
+  } catch (err) {
+    console.error("Failed to get public key:", err);
+    addLine("Could not fetch recipient public key.", "other");
+    return;
+  }
 
-  } else {
-    let recipientPublicKey;
-    try {
-      recipientPublicKey = await fetchPublicKey(activeChat);
-    } catch (err) {
-      console.error("Failed to get public key:", err);
-      addLine("Could not fetch recipient public key.", "other");
-      return;
-    }
-
+  try {
     const encryptedPayload = await encryptMessage(text, recipientPublicKey);
 
     ws.send(
@@ -508,9 +497,11 @@ async function sendChat() {
     });
 
     renderMessages();
+    inputEl.value = "";
+  } catch (err) {
+    console.error("Failed to send message:", err);
+    addLine("Failed to send message.", "other");
   }
-
-  inputEl.value = "";
 }
 
 async function sendFile() {
@@ -519,12 +510,14 @@ async function sendFile() {
     addLine("Please choose a file first.", "other");
     return;
   }
+  
   if (!authed) {
     addLine("Not connected. Please wait...", "other");
     return;
   }
-  if (activeChat === "general") {
-    addLine("File sharing is only for direct messages.", "other");
+
+  if (!activeChat) {
+    addLine("Select a user first.", "other");
     return;
   }
 
