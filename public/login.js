@@ -53,7 +53,7 @@ form.addEventListener("submit", async (e) => {
 
     sessionStorage.setItem("username", data.user.username);
     sessionStorage.setItem("userId", data.user.id);
-    sessionStorage.setItem("password", password);
+    sessionStorage.setItem("token", data.token);
 
     window.location.href = "Chat_Interface.html";
   } catch (err) {

@@ -8,10 +8,10 @@ import {
 
 // Get user info
 const username = sessionStorage.getItem("username");
-const password = sessionStorage.getItem("password");
+const token = sessionStorage.getItem("token");
 
 // Redirect if not logged in
-if (!username || !password) {
+if (!username || !token) {
   window.location.href = "login.html";
 }
 
@@ -247,7 +247,7 @@ function connect() {
       hasEverConnected = true;
     }
     setConnStatus("online", "online");
-    ws.send(JSON.stringify({ type: "auth", username }));
+    ws.send(JSON.stringify({ type: "auth", username, token }));
 
     if (chatTitleEl) chatTitleEl.textContent = chatTitleFor(activeChat);
     renderSidebar();
@@ -316,7 +316,8 @@ async function handleMessage(e) {
     addLine("Login failed. Redirecting...", "other");
     manualClose = true;
     sessionStorage.removeItem("username");
-    sessionStorage.removeItem("password");
+    sessionStorage.removeItem("userId");
+    sessionStorage.removeItem("token");
     try { ws.close(); } catch {}
     window.location.href = "login.html";
     return;
@@ -582,7 +583,8 @@ if (logoutBtn) {
   logoutBtn.addEventListener("click", () => {
     manualClose = true;
     sessionStorage.removeItem("username");
-    sessionStorage.removeItem("password");
+    sessionStorage.removeItem("userId");
+    sessionStorage.removeItem("token");
     try { ws && ws.close(); } catch {}
     window.location.href = "login.html";
   });
