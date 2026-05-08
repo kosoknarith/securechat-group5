@@ -327,7 +327,26 @@ const server = http.createServer((request, response) => {
 
   const parsedUrl = new URL(request.url, `http://${request.headers.host}`);
 
+  response.setHeader("Content-Type", "application/json");
 
+  if (parsedUrl.pathname === "/api/login" && request.method === "POST") {
+    return handleLogin(request, response);
+  }
+  if (parsedUrl.pathname === "/api/register" && request.method === "POST") {
+    return handleRegister(request, response);
+  }
+  if (
+    parsedUrl.pathname === "/api/validate_token" &&
+    request.method === "POST"
+  ) {
+    return handleValidateToken(request, response);
+  }
+  if (parsedUrl.pathname === "/api/publickey" && request.method === "GET") {
+    return handlePublicKey(request, response, parsedUrl);
+  }
+
+  response.removeHeader("Content-Type");
+  
   let filePath = path.join(
     publicDir,
     parsedUrl.pathname === "/" ? "login.html" : parsedUrl.pathname
