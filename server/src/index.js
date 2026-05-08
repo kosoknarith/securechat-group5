@@ -100,7 +100,7 @@ async function handleLogin(request, response) {
         [username],
       );
 
-      const rows = result.rows;
+      const user = result.rows[0];
 
       // Checks if user exists and password matches
       if (!user || !(await bcrypt.compare(password, user.password_hash))) {
